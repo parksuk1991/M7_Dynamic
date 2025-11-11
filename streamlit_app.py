@@ -526,7 +526,7 @@ def main():
     st.dataframe(metrics_df, use_container_width=True)
 
     # Drawdown area chart (filled)
-    st.subheader("낙폭 (Drawdown) 비교 (영역형)")
+    st.subheader("낙폭 (Drawdown)")
     fig_dd = go.Figure()
     fig_dd.add_trace(go.Scatter(
         x=strat_dd.index,
@@ -534,7 +534,7 @@ def main():
         fill='tozeroy',
         mode='none',
         name='Strategy DD (%)',
-        fillcolor='rgba(255,20,147,0.25)'  # pale deeppink
+        fillcolor='rgba(255,20,147,0.4)'  # pale deeppink
     ))
     fig_dd.add_trace(go.Scatter(
         x=bench_dd.index,
@@ -542,7 +542,7 @@ def main():
         fill='tozeroy',
         mode='none',
         name='Benchmark DD (%)',
-        fillcolor='rgba(65,105,225,0.18)'  # pale royalblue
+        fillcolor='rgba(65,105,225,0.4)'  # pale royalblue
     ))
     fig_dd.update_layout(title="Drawdown (%) over time (area)", xaxis_title="Date", yaxis_title="Drawdown (%)", template="plotly_white", hovermode='x unified')
     st.plotly_chart(fig_dd, use_container_width=True)
