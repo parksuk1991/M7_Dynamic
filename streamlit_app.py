@@ -10,6 +10,10 @@ from typing import List, Tuple, Optional, Dict
 
 warnings.filterwarnings('ignore')
 
+import requests
+from PIL import Image
+from io import BytesIO
+
 # 페이지 설정
 st.set_page_config(
     page_title="U.S. Contrarian Strategy",
