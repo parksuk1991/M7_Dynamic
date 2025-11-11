@@ -395,7 +395,7 @@ def main():
         run_button = st.button("🚀 포트폴리오 생성", type="primary", use_container_width=True)
     
     if not run_button:
-        st.info("사이드바에서 티커, 기간, 벤치마크를 설정한 뒤 '포트폴리오 생성' 버튼 클릭.")
+        st.info("사이드바에서 티커, 기간, 벤치마크 설정 후 '포트폴리오 생성' 클릭.")
         return
 
     if len(tickers) == 0:
