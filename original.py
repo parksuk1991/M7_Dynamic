@@ -37,7 +37,7 @@ BENCHMARK_TICKER = 'QQQ'
 # Color theme
 PRIMARY_COLOR = 'deeppink'
 SECONDARY_COLOR = 'royalblue'
-PASTEL_PALETTE = px.colors.qualitative.Pastel
+PASTEL_PALETTE = px.colors.sequential.RdPu_r
 
 # -------------------------
 # 캐시 / 유틸리티 함수
@@ -343,7 +343,7 @@ def create_excess_return_heatmap(strat_returns: pd.Series, bench_returns: pd.Ser
 # 스트림릿 UI
 # -------------------------
 def main():
-    st.title("📈 U.S. Contrarian Strategy")
+    st.title("📈 M7 Contrarian Strategy")
     st.markdown("동적 리밸런싱(고정 파라미터)을 기반으로 한 컨트래리언 포트폴리오 분석 및 시각화")
 
     with st.sidebar:
