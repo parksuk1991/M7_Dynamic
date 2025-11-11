@@ -283,6 +283,7 @@ def weights_history_to_composition_dict(weight_history: pd.DataFrame, rebalance_
     weight_history(DataFrame with 'date' column or date index) -> {date: {ticker: weight}}
     For monthly rebalance ('M'), map entries to their month-end date (period end).
     If multiple entries fall in same month, keep the last one (chronological).
+    IMPORTANT: if rebalance_freq == 'M' and today is not month-end, we will only consider months up to the previous month-end.
     """
     comp = {}
     if weight_history is None or len(weight_history) == 0:
@@ -308,8 +309,20 @@ def weights_history_to_composition_dict(weight_history: pd.DataFrame, rebalance_
             except Exception:
                 continue
             weights[col] = val
-        # if same month already present, replace (we iterate in chronological order)
+        # overwrite same month if multiple entries exist (last wins)
         comp[key] = weights
+
+    # If monthly rebalance, ensure we don't expose current partial-month rebalances:
+    if rebalance_freq == 'M':
+        today = date.today()
+        # last month-end (previous month)
+        last_month_end = (today.replace(day=1) - timedelta(days=1)).date()
+        # keep only months <= last_month_end
+        comp = {k: v for k, v in comp.items() if k <= last_month_end}
+        # If no exact last_month_end key exists, pick the most recent key <= last_month_end
+        if len(comp) > 0:
+            # keep all keys (we will later select latest <= last_month_end)
+            pass
     return comp
 
 def get_rebalancing_changes(current: Dict[str,float], previous: Dict[str,float]) -> Dict[str, Dict]:
@@ -342,7 +355,12 @@ def create_performance_charts(portfolio_returns: pd.Series, benchmark_returns: p
     fig_year = go.Figure()
     fig_year.add_trace(go.Bar(x=df_year.index.astype(str), y=df_year['Strategy'], name='Strategy', marker_color=PRIMARY_COLOR))
     fig_year.add_trace(go.Bar(x=df_year.index.astype(str), y=df_year['Benchmark'], name=benchmark_name, marker_color=SECONDARY_COLOR))
-    fig_year.update_layout(barmode='group', title='연도별 성과 비교 (%)', xaxis_title='Year', yaxis_title='%', template="plotly_white")
+    fig_year.update_layout(barmode='group',
+                           title='연도별 성과 비교 (%)',
+                           xaxis_title='Year',
+                           yaxis_title='%',
+                           template="plotly_white",
+                           legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)'))
 
     # monthly last 24 months
     strat_monthly = (1 + portfolio_returns).resample('M').prod() - 1
@@ -356,7 +374,11 @@ def create_performance_charts(portfolio_returns: pd.Series, benchmark_returns: p
     fig_m24 = go.Figure()
     fig_m24.add_trace(go.Bar(x=df_m24.index, y=df_m24['Strategy'], name='Strategy', marker_color=PRIMARY_COLOR))
     fig_m24.add_trace(go.Bar(x=df_m24.index, y=df_m24['Benchmark'], name='Benchmark', marker_color=SECONDARY_COLOR))
-    fig_m24.update_layout(barmode='group', title='최근 24개월 월별 성과 비교 (%)', xaxis_tickangle=-45, template="plotly_white")
+    fig_m24.update_layout(barmode='group',
+                          title='최근 24개월 월별 성과 비교 (%)',
+                          xaxis_tickangle=-45,
+                          template="plotly_white",
+                          legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)'))
 
     return fig_year, fig_m24
 
@@ -393,7 +415,7 @@ def main():
         **Rebalancing:** {"Weekly" if OPTIMAL_PARAMS['rebalance_freq']=='W' else "Monthly"}  
         **Threshold:** {abs(OPTIMAL_PARAMS['threshold'])*100:.0f}%  
         **Weight Split:** {OPTIMAL_PARAMS['weight_split']*100:.0f}%  
-        **Min Weight Change:** {OPTIMAL_PARAMS['min_weight_change']*100:.0f}%
+        **Min Weight Change:** {OPTIMAL_PARAMS['min_weight_change']*100:.0f}%  
         """)
         run_button = st.button("🚀 포트폴리오 분석 실행", type="primary", use_container_width=True)
     
@@ -502,16 +524,44 @@ def main():
     col_left, col_right = st.columns(2)
     with col_left:
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=strat_cum.index, y=(strat_cum - 1) * 100, name="Strategy Cumulative (%)", line=dict(color=PRIMARY_COLOR, width=2)))
-        fig.add_trace(go.Scatter(x=bench_cum.index, y=(bench_cum - 1) * 100, name="Benchmark Cumulative (%)", line=dict(color=SECONDARY_COLOR, width=2, dash='dash')))
-        fig.update_layout(title="누적수익률 (%)", xaxis_title="Date", yaxis_title="%", template="plotly_white", hovermode='x unified')
+        fig.add_trace(go.Scatter(
+            x=strat_cum.index, y=(strat_cum - 1) * 100,
+            name="Strategy Cumulative (%)",
+            line=dict(color=PRIMARY_COLOR, width=2)
+        ))
+        fig.add_trace(go.Scatter(
+            x=bench_cum.index, y=(bench_cum - 1) * 100,
+            name="Benchmark Cumulative (%)",
+            line=dict(color=SECONDARY_COLOR, width=2, dash='dash')
+        ))
+        fig.update_layout(
+            title="누적수익률 (%)",
+            xaxis_title="Date",
+            yaxis_title="%",
+            template="plotly_white",
+            hovermode='x unified',
+            legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)')
+        )
         st.plotly_chart(fig, use_container_width=True)
 
     with col_right:
         fig_log = go.Figure()
-        fig_log.add_trace(go.Scatter(x=strat_cum.index, y=np.log(np.maximum(strat_cum.values, 1e-8)), name="Strategy Log Cumulative", line=dict(color=PRIMARY_COLOR, width=2)))
-        fig_log.add_trace(go.Scatter(x=bench_cum.index, y=np.log(np.maximum(bench_cum.values, 1e-8)), name="Benchmark Log Cumulative", line=dict(color=SECONDARY_COLOR, width=2, dash='dash')))
-        fig_log.update_layout(title="로그 누적수익률", template="plotly_white", hovermode='x unified')
+        fig_log.add_trace(go.Scatter(
+            x=strat_cum.index, y=np.log(np.maximum(strat_cum.values, 1e-8)),
+            name="Strategy Log Cumulative",
+            line=dict(color=PRIMARY_COLOR, width=2)
+        ))
+        fig_log.add_trace(go.Scatter(
+            x=bench_cum.index, y=np.log(np.maximum(bench_cum.values, 1e-8)),
+            name="Benchmark Log Cumulative",
+            line=dict(color=SECONDARY_COLOR, width=2, dash='dash')
+        ))
+        fig_log.update_layout(
+            title="로그 누적수익률",
+            template="plotly_white",
+            hovermode='x unified',
+            legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)')
+        )
         st.plotly_chart(fig_log, use_container_width=True)
 
     # Major metrics table under the charts (restored per request)
@@ -525,28 +575,53 @@ def main():
     metrics_df = metrics_df.round(3).fillna("-")
     st.dataframe(metrics_df, use_container_width=True)
 
-    # Drawdown area chart (filled)
+    # Drawdown area chart (filled) with boundary lines and legend inside
     st.subheader("낙폭 (Drawdown)")
     fig_dd = go.Figure()
+    # area fill
     fig_dd.add_trace(go.Scatter(
         x=strat_dd.index,
         y=strat_dd.values * 100,
         fill='tozeroy',
         mode='none',
-        name='Strategy DD (%)',
-        line=dict(color='royalblue', width=1),
-        fillcolor='rgba(255,20,147,0.3)'  # pale deeppink
+        name='Strategy DD (area)',
+        fillcolor='rgba(255,20,147,0.18)',
+        hoverinfo='x+y'
     ))
+    # boundary line for strategy (edge)
+    fig_dd.add_trace(go.Scatter(
+        x=strat_dd.index,
+        y=strat_dd.values * 100,
+        mode='lines',
+        name='Strategy DD (line)',
+        line=dict(color=PRIMARY_COLOR, width=1)
+    ))
+    # area fill benchmark
     fig_dd.add_trace(go.Scatter(
         x=bench_dd.index,
         y=bench_dd.values * 100,
         fill='tozeroy',
         mode='none',
-        name='Benchmark DD (%)',
-        line=dict(color='royalblue', width=1),
-        fillcolor='rgba(65,105,225,0.3)'  # pale royalblue
+        name='Benchmark DD (area)',
+        fillcolor='rgba(65,105,225,0.12)',
+        hoverinfo='x+y'
     ))
-    fig_dd.update_layout(title="Drawdown (%) over time (area)", xaxis_title="Date", yaxis_title="Drawdown (%)", template="plotly_white", hovermode='x unified')
+    # boundary line for benchmark
+    fig_dd.add_trace(go.Scatter(
+        x=bench_dd.index,
+        y=bench_dd.values * 100,
+        mode='lines',
+        name='Benchmark DD (line)',
+        line=dict(color=SECONDARY_COLOR, width=1, dash='dash')
+    ))
+    fig_dd.update_layout(
+        title="Drawdown (%) over time (area + boundary)",
+        xaxis_title="Date",
+        yaxis_title="Drawdown (%)",
+        template="plotly_white",
+        hovermode='x unified',
+        legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)')
+    )
     st.plotly_chart(fig_dd, use_container_width=True)
 
     # ---------------- 리밸런싱 시점별 가중치 히스토리 (히트맵 + 테이블) ----------------
@@ -570,9 +645,17 @@ def main():
             heat_df = wh.fillna(0).T
             heat_df.columns = [pd.to_datetime(c).strftime('%Y-%m-%d') if not isinstance(c, str) else c for c in heat_df.columns]
             # Use a pink/purple sequential scale
-            fig_heat = px.imshow(heat_df, labels=dict(x="Rebalance Date", y="Ticker", color="Weight"),
-                                 x=heat_df.columns, y=heat_df.index, color_continuous_scale='RdPu', aspect="auto")
-            fig_heat.update_layout(height=400, template="plotly_white")
+            fig_heat = px.imshow(
+                heat_df,
+                labels=dict(x="Rebalance Date", y="Ticker", color="Weight"),
+                x=heat_df.columns,
+                y=heat_df.index,
+                color_continuous_scale='RdPu',
+                aspect="auto"
+            )
+            fig_heat.update_layout(height=400,
+                                   template="plotly_white",
+                                   legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)'))
             st.plotly_chart(fig_heat, use_container_width=True)
         except Exception:
             st.warning("히트맵 생성 중 문제가 발생했습니다. 위 표를 확인하세요.")
@@ -583,7 +666,9 @@ def main():
     # ---------------- 포트폴리오 업데이트 (최근 리밸런싱 기준) ----------------
     st.subheader(f"📰 포트폴리오 업데이트 ({date.today().strftime('%Y-%m')} 기준)")
     if weights_composition:
+        # choose the latest composition no later than previous month-end (handled in mapping)
         recent_dates = sorted(weights_composition.keys())
+        # pick the most recent key (which by mapping will be <= previous month-end)
         latest_date = recent_dates[-1]
         previous_date = recent_dates[-2] if len(recent_dates) > 1 else None
         current_weights = weights_composition[latest_date]
@@ -606,7 +691,9 @@ def main():
                 color_discrete_sequence=PASTEL_PALETTE
             )
             fig_pie.update_traces(textposition='inside', textinfo='percent+label')
-            fig_pie.update_layout(height=400, template="plotly_white")
+            fig_pie.update_layout(height=400,
+                                  template="plotly_white",
+                                  legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)'))
             st.plotly_chart(fig_pie, use_container_width=True)
 
         with col2:
@@ -643,7 +730,8 @@ def main():
                     xaxis_title="종목",
                     yaxis_title="비중 변화 (%p)",
                     template="plotly_white",
-                    height=400
+                    height=400,
+                    legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)')
                 )
                 st.plotly_chart(fig_rebal, use_container_width=True)
             else:
@@ -661,7 +749,14 @@ def main():
         fig_hist = go.Figure()
         fig_hist.add_trace(go.Histogram(x=strat_monthly.values * 100, name='포트폴리오', opacity=0.7, marker_color=PRIMARY_COLOR, nbinsx=20))
         fig_hist.add_trace(go.Histogram(x=bench_monthly.values * 100, name='벤치마크', opacity=0.7, marker_color=SECONDARY_COLOR, nbinsx=20))
-        fig_hist.update_layout(title="월별 수익률 분포", xaxis_title="월별 수익률 (%)", yaxis_title="빈도", barmode='overlay', template="plotly_white")
+        fig_hist.update_layout(
+            title="월별 수익률 분포",
+            xaxis_title="월별 수익률 (%)",
+            yaxis_title="빈도",
+            barmode='overlay',
+            template="plotly_white",
+            legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)')
+        )
         st.plotly_chart(fig_hist, use_container_width=True)
 
     with colm2:
@@ -677,7 +772,8 @@ def main():
         fig_rs = go.Figure()
         fig_rs.add_trace(go.Scatter(x=strat_rs.index, y=strat_rs.values, mode='lines', name='포트폴리오', line=dict(color=PRIMARY_COLOR, width=2)))
         fig_rs.add_trace(go.Scatter(x=bench_rs.index, y=bench_rs.values, mode='lines', name='벤치마크', line=dict(color=SECONDARY_COLOR, width=2, dash='dash')))
-        fig_rs.update_layout(title='12개월 롤링 샤프비율', xaxis_title='Date', yaxis_title='Sharpe', template="plotly_white")
+        fig_rs.update_layout(title='12개월 롤링 샤프비율', xaxis_title='Date', yaxis_title='Sharpe', template="plotly_white",
+                             legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)'))
         st.plotly_chart(fig_rs, use_container_width=True)
 
     # ---------------- 연도별 & 최근 24개월 비교 ----------------
@@ -711,7 +807,8 @@ def main():
                         color_discrete_sequence=PASTEL_PALETTE
                     )
                     fig_pie.update_traces(textinfo='percent+label')
-                    fig_pie.update_layout(height=300, template="plotly_white")
+                    fig_pie.update_layout(height=300, template="plotly_white",
+                                          legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)'))
                     st.plotly_chart(fig_pie, use_container_width=True)
     else:
         st.info("가중치 히스토리가 없습니다.")
@@ -737,7 +834,7 @@ def main():
         st.write(f"Min Weight Change: {min_weight_change}")
 
     st.markdown("---")
-    st.caption("변경사항: (1) 백테스팅 정보 블록 제거, 주요 지표 섹션 복구(누적/로그 아래에 배치). (2) 히트맵을 핑크 계열로 변경, 낙폭 차트를 영역형으로 표시. (3) 월간 리밸런싱의 최신 리밸런싱 날짜는 '월말(직전월말)' 기준으로 매핑하여 Nov 10 같은 비정상적 날짜 대신 10월 말 등으로 표시하도록 수정했습니다. 파이차트는 파스텔 톤을 사용합니다.")
+    st.caption("변경사항: (1) 백테스팅 정보 블록 제거, 주요 지표 섹션 복구(누적/로그 아래에 배치). (2) 히트맵을 핑크 계열로 변경, 낙폭 차트를 영역형+경계선으로 표시. (3) 월간 리밸런싱은 항상 직전 월말 기준으로 최신 리밸런싱 날짜를 노출하도록 수정했습니다. 모든 차트의 범례는 차트 내부(왼쪽 상단)에 위치합니다. 파이차트는 파스텔 팔레트를 사용합니다.")
 
 if __name__ == "__main__":
     main()
