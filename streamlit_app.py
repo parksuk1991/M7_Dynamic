@@ -525,7 +525,7 @@ def main():
             heat_df = wh.fillna(0).T
             heat_df.columns = [pd.to_datetime(c).strftime('%Y-%m-%d') if not isinstance(c, str) else c for c in heat_df.columns]
             fig_heat = px.imshow(heat_df, labels=dict(x="Rebalance Date", y="Ticker", color="Weight"),
-                                x=heat_df.columns, y=heat_df.index, color_continuous_scale='PASTEL_PALETTE', aspect="auto")
+                                x=heat_df.columns, y=heat_df.index, color_continuous_scale='RdPu', aspect="auto")
             fig_heat.update_layout(height=400, template="plotly_white")
             st.plotly_chart(fig_heat, use_container_width=True)
         except Exception:
@@ -554,7 +554,7 @@ def main():
                 st.dataframe(current_df, use_container_width=True, hide_index=True)
 
                 fig_pie = px.pie(names=list(current_weights.keys()), values=list(current_weights.values()),
-                                title="📒 현재 비중 분포", color_discrete_sequence=RdPu)
+                                title="📒 현재 비중 분포", color_discrete_sequence=PASTEL_PALETTE)
                 fig_pie.update_traces(textposition='inside', textinfo='percent+label')
                 fig_pie.update_layout(height=400, template="plotly_white")
                 st.plotly_chart(fig_pie, use_container_width=True)
