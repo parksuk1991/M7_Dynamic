@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import warnings
 from typing import List, Tuple, Optional
 
@@ -60,11 +60,11 @@ def fetch_ticker_name(ticker: str) -> str:
         return ticker
 
 @st.cache_data(ttl=86400)
-def get_first_available_date(ticker: str) -> Optional[pd.Timestamp]:
+def get_first_available_date(ticker: str) -> Optional[date]:
     """
     티커의 전체 이용 가능한 데이터에서 첫 거래 가능일(종가가 존재하는 첫 날짜)을 반환합니다.
     - yfinance Ticker.history(period='max')를 사용하여 전체 히스토리를 가져옴.
-    - 캐시하여 반복 호출시 속도 향상.
+    - 반환 타입을 datetime.date 로 하여 tz 관련 비교 문제를 회피함.
     """
     try:
         hist = yf.Ticker(ticker).history(period="max", auto_adjust=False)
@@ -73,10 +73,12 @@ def get_first_available_date(ticker: str) -> Optional[pd.Timestamp]:
         if 'Close' in hist.columns:
             series = hist['Close']
         else:
-            # if single-column history returned differently
             series = hist.iloc[:, 0]
         first = series.first_valid_index()
-        return pd.Timestamp(first) if first is not None else None
+        if first is None:
+            return None
+        # 반환값을 date 객체로 변환 (tz-naive 비교를 위해)
+        return pd.Timestamp(first).date()
     except Exception:
         return None
 
@@ -284,8 +286,8 @@ def main():
         st.subheader("📅 기간 설정")
         default_start = datetime(2017, 1, 1)
         default_end = datetime.now()
-        start_date = st.date_input("시작일", value=default_start, min_value=datetime(1990,1,1), max_value=default_end)
-        end_date = st.date_input("종료일", value=default_end, min_value=start_date, max_value=default_end)
+        start_date = st.date_input("시작일", value=default_start.date(), min_value=datetime(1990,1,1).date(), max_value=default_end.date())
+        end_date = st.date_input("종료일", value=default_end.date(), min_value=start_date, max_value=default_end.date())
 
         st.subheader("📈 벤치마크")
         benchmark_option = st.selectbox("벤치마크 선택", options=["Equal Weight (tickers)", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
@@ -320,27 +322,26 @@ def main():
     with st.spinner("티커별 전체 사용가능한 첫 거래일을 조회 중 (yfinance)..."):
         first_dates = {}
         for t in tickers:
-            fd = get_first_available_date(t)
+            fd = get_first_available_date(t)  # returns datetime.date or None
             first_dates[t] = fd
 
-    # 2) 시작일 기준 상장 여부 검사: 만약 티커의 전체 첫 거래일이 start_date보다 이후라면 그 티커는 시작일에 상장되어 있지 않은 것
+    # 2) 시작일 기준 상장 여부 검사: get_first_available_date가 반환한 date와 비교 (tz 문제 회피)
     not_listed = []
     listed_ok = []
     for t, fd in first_dates.items():
         if fd is None:
             not_listed.append((t, "데이터 없음"))
         else:
-            # fd is Timestamp of very first available date (IPO or data start)
-            if pd.Timestamp(start_date).normalize() < fd.normalize():
-                not_listed.append((t, fd.date().isoformat()))
+            # fd is a datetime.date; start_date is also a datetime.date (from st.date_input)
+            if start_date < fd:
+                not_listed.append((t, fd.isoformat()))
             else:
-                listed_ok.append((t, fd.date().isoformat()))
+                listed_ok.append((t, fd.isoformat()))
 
     if len(not_listed) > 0:
         st.error("선택한 시작일에 상장되어 있지 않은 종목이 있습니다. 시작일을 조정하거나 해당 종목을 제거하세요.")
         df_nl = pd.DataFrame(not_listed, columns=['Ticker', 'First Available Date'])
         st.dataframe(df_nl)
-        # also show ok list for clarity
         if len(listed_ok) > 0:
             st.success("아래 종목들은 시작일 이전에도 거래 데이터가 존재합니다.")
             st.dataframe(pd.DataFrame(listed_ok, columns=['Ticker', 'First Available Date']))
@@ -358,7 +359,7 @@ def main():
         st.error("종목 데이터 다운로드 실패 또는 기간 내 데이터가 없습니다. 날짜 범위를 조정하거나 티커를 확인하세요.")
         return
 
-    # 이하 기존 로직(백테스트, 지표, 차트 등)은 동일하게 진행
+    # 이하 기존 로직 (백테스트 등)
     lookback_days = max(5, int(lookback_months * 21))
 
     with st.spinner("백테스팅 중..."):
@@ -476,7 +477,7 @@ def main():
         st.dataframe(display_df, use_container_width=True)
 
     st.markdown("---")
-    st.caption("변경사항: 시작일 상장 여부 판정 로직을 수정했습니다. 각 티커의 전체 사용 가능한 첫 거래일(IPO 또는 데이터 시작일)을 yfinance에서 직접 조회하여 '선택한 시작일에 상장되어 있지 않음' 오류가 잘못 뜨지 않도록 개선했습니다.")
+    st.caption("변경사항: 시작일 상장 여부 판정 로직을 안전하게 수정(전체 히스토리 조회 및 date 비교)했고 M7 종목을 기본 티커로 설정했습니다.")
 
 if __name__ == "__main__":
     main()
