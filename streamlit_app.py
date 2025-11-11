@@ -37,7 +37,7 @@ BENCHMARK_TICKER = 'QQQ'
 # Color theme
 PRIMARY_COLOR = 'deeppink'
 SECONDARY_COLOR = 'royalblue'
-PASTEL_PALETTE = px.colors.qualitative.Pastel
+PASTEL_PALETTE = px.colors.sequential.RdPu
 
 # -------------------------
 # 캐시 / 유틸리티 함수
@@ -525,7 +525,7 @@ def main():
             heat_df = wh.fillna(0).T
             heat_df.columns = [pd.to_datetime(c).strftime('%Y-%m-%d') if not isinstance(c, str) else c for c in heat_df.columns]
             fig_heat = px.imshow(heat_df, labels=dict(x="Rebalance Date", y="Ticker", color="Weight"),
-                                x=heat_df.columns, y=heat_df.index, color_continuous_scale='RdPu', aspect="auto")
+                                x=heat_df.columns, y=heat_df.index, color_continuous_scale='PASTEL_PALETTE', aspect="auto")
             fig_heat.update_layout(height=400, template="plotly_white")
             st.plotly_chart(fig_heat, use_container_width=True)
         except Exception:
