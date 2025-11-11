@@ -16,7 +16,7 @@ from io import BytesIO
 
 # 페이지 설정
 st.set_page_config(
-    page_title="U.S. Contrarian Strategy",
+    page_title="M7 Contrarian Strategy",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -350,8 +350,8 @@ def main():
     # -------------------- 상단 레이아웃 ---------------------
     col_title, col_img_credit = st.columns([8, 1])
     with col_title:
-        st.title("📈 U.S. Contrarian Strategy")
-        st.markdown("동적 리밸런싱(고정 파라미터)을 기반으로 한 컨트래리언 포트폴리오 분석 및 시각화")
+        st.title("📈 M7 Contrarian Strategy")
+        st.markdown("낙폭 과대 기준 동적 리밸런싱 포트폴리오")
     with col_img_credit:
         image_url = "https://amateurphotographer.com/wp-content/uploads/sites/7/2017/08/Screen-Shot-2017-08-23-at-22.29.18.png?w=600.jpg"
         try:
@@ -376,17 +376,15 @@ def main():
         tickers = [t.strip().upper() for t in tickers_input.replace(';', ',').split(',') if t.strip() != ""]
 
         st.subheader("📅 기간 설정")
-        default_start = datetime(2017, 1, 1)
+        default_start = datetime(2015, 01, 01)
         default_end = datetime.now()
         start_date = st.date_input("시작일", value=default_start.date(), min_value=datetime(1990,1,1).date(), max_value=default_end.date())
         end_date = st.date_input("종료일", value=default_end.date(), min_value=start_date, max_value=default_end.date())
 
         st.subheader("📈 벤치마크")
         benchmark_option = st.selectbox("벤치마크 선택", options=["Equal Weight (tickers)", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
-
-        st.markdown("---")
        
-        st.subheader("🎯 최적 파라미터")
+        st.subheader("🎯 최적 파라미터(Pre-trained)")
         st.info(f"""
         **Lookback:** {OPTIMAL_PARAMS['lookback_months']}개월  
         **Rebalancing:** {"Weekly" if OPTIMAL_PARAMS['rebalance_freq']=='W' else "Monthly"}  
@@ -394,17 +392,17 @@ def main():
         **Weight Split:** {OPTIMAL_PARAMS['weight_split']*100:.0f}%  
         **Min Weight Change:** {OPTIMAL_PARAMS['min_weight_change']*100:.0f}%
         """)
-        run_button = st.button("🚀 포트폴리오 분석 실행", type="primary", use_container_width=True)
+        run_button = st.button("🚀 포트폴리오 생성", type="primary", use_container_width=True)
     
     if not run_button:
-        st.info("사이드바에서 티커 및 기간을 설정한 뒤 '포트폴리오 분석 실행'을 눌러 결과를 보세요.")
+        st.info("사이드바에서 티커, 기간, 벤치마크를 설정한 뒤 '포트폴리오 생성' 버튼 클릭.")
         return
 
     if len(tickers) == 0:
         st.error("티커 목록이 비어 있습니다. 하나 이상의 티커를 입력하세요.")
         return
 
-    with st.spinner("티커별 전체 사용가능한 첫 거래일을 조회 중..."):
+    with st.spinner("데이터 처리 중..."):
         first_dates = {t: get_first_available_date(t) for t in tickers}
 
     not_listed = []
@@ -484,7 +482,7 @@ def main():
     bench_dd = drawdown_ts(bench_cum)
 
     # UI 출력
-    st.subheader("성과 개요 및 차트")
+    st.subheader("성과")
 
     col_left, col_right = st.columns(2)
     with col_left:
@@ -523,12 +521,12 @@ def main():
                                  showlegend=False, fillcolor='rgba(65,105,225,0.12)', hoverinfo='x+y'))
     fig_dd.add_trace(go.Scatter(x=bench_dd.index, y=bench_dd.values * 100, mode='lines', name='Benchmark DD',
                                  line=dict(color=SECONDARY_COLOR, width=1, dash='dash')))
-    fig_dd.update_layout(title="Drawdown (%) over time", xaxis_title="Date", yaxis_title="Drawdown (%)",
+    fig_dd.update_layout(xaxis_title="Date", yaxis_title="Drawdown (%)",
                          template="plotly_white", hovermode='x unified',
                          legend=dict(x=1.02, y=1.0, xanchor='left', yanchor='top'))
     st.plotly_chart(fig_dd, use_container_width=True)
 
-    st.subheader("리밸런싱 시점별 가중치 히스토리")
+    st.subheader("비중 히스토리")
     if weight_history is None or len(weight_history) == 0:
         st.info("리밸런싱 가중치 이력이 없습니다.")
         weights_composition = {}
@@ -539,7 +537,6 @@ def main():
             wh = wh.set_index('date')
         wh = wh.sort_index()
         
-        st.markdown("### 리밸런싱별 가중치 표")
         wh_pct = (wh * 100).round(3)
         st.dataframe(wh_pct, use_container_width=True)
 
@@ -576,14 +573,14 @@ def main():
                 st.dataframe(current_df, use_container_width=True, hide_index=True)
 
                 fig_pie = px.pie(names=list(current_weights.keys()), values=list(current_weights.values()),
-                                title="📒 현재 비중 분포", color_discrete_sequence=PASTEL_PALETTE)
+                                title="📒 현재 비중", color_discrete_sequence=PASTEL_PALETTE)
                 fig_pie.update_traces(textposition='inside', textinfo='percent+label')
                 fig_pie.update_layout(height=400, template="plotly_white")
                 st.plotly_chart(fig_pie, use_container_width=True)
 
             with col2:
                 if previous_weights:
-                    st.write(f"**📙 전월 대비 리밸런싱 변화** ({previous_date.strftime('%Y-%m-%d')} → {latest_date.strftime('%Y-%m-%d')})")
+                    st.write(f"**📙 전월 대비 리밸런싱 추이** ({previous_date.strftime('%Y-%m-%d')} → {latest_date.strftime('%Y-%m-%d')})")
                     changes = get_rebalancing_changes(current_weights, previous_weights)
                     sorted_changes = sorted(changes.items(), key=lambda x: abs(x[1]['change']), reverse=True)
                     rebalancing_data = []
@@ -604,7 +601,7 @@ def main():
                     fig_rebal = go.Figure(data=[go.Bar(x=stocks, y=[x*100 for x in changes_values],
                                                        marker_color=colors, text=[f"{x:+.2%}" for x in changes_values],
                                                        textposition='auto')])
-                    fig_rebal.update_layout(title="📗 리밸런싱 변화 (%p)", xaxis_title="종목", yaxis_title="비중 변화 (%p)",
+                    fig_rebal.update_layout(title="📗 리밸런싱 추이 (%p)", xaxis_title="종목", yaxis_title="비중 변화 (%p)",
                                            template="plotly_white", height=400)
                     st.plotly_chart(fig_rebal, use_container_width=True)
                 else:
@@ -626,7 +623,7 @@ def main():
                           legend=dict(x=0.02, y=0.98, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)'))
     st.plotly_chart(fig_hist, use_container_width=True)
 
-    st.subheader("연도별 · 월별 초과성과 히트맵")
+    st.subheader("초과성과 히트맵")
     excess_heatmap = create_excess_return_heatmap(strat_returns, bench_returns)
     if not excess_heatmap.empty:
         st.markdown("### 월별 초과성과 (%) - Portfolio vs Benchmark")
@@ -644,7 +641,6 @@ def main():
         ))
         
         fig_heatmap.update_layout(
-            title="월별 초과성과 히트맵 (행: 연도, 열: 월)",
             xaxis_title="Month",
             yaxis_title="Year",
             height=max(400, len(excess_heatmap) * 40),
@@ -662,10 +658,7 @@ def main():
         )
         
         st.plotly_chart(fig_heatmap, use_container_width=True)
-        
-        # 데이터 테이블도 함께 표시
-        st.markdown("### 초과성과 수치 테이블")
-        st.dataframe(excess_heatmap.fillna('-'), use_container_width=True)
+
     else:
         st.info("초과성과 데이터가 부족합니다.")
 
@@ -691,33 +684,7 @@ def main():
     else:
         st.info("가중치 히스토리가 없습니다.")
 
-    st.subheader("추가 도구 및 내보내기")
-    c1, c2 = st.columns([1,1])
-    with c1:
-        csv_port = portfolio_values.rename("portfolio").to_frame().to_csv().encode('utf-8')
-        st.download_button("포트폴리오 가치(시계열) CSV 다운로드", data=csv_port, 
-                          file_name="portfolio_values.csv", mime="text/csv")
-        if weight_history is not None and len(weight_history) > 0:
-            wh_dl = weight_history.copy()
-            wh_dl['date'] = wh_dl['date'].astype(str) if 'date' in wh_dl.columns else wh_dl.index.astype(str)
-            st.download_button("가중치 히스토리 CSV 다운로드", 
-                             data=wh_dl.to_csv(index=False).encode('utf-8'),
-                             file_name="weight_history.csv", mime="text/csv")
-        
-        # 초과성과 테이블 다운로드 추가
-        if not excess_heatmap.empty:
-            csv_excess = excess_heatmap.to_csv().encode('utf-8')
-            st.download_button("초과성과 테이블 CSV 다운로드", data=csv_excess,
-                             file_name="excess_returns.csv", mime="text/csv")
-    
-    with c2:
-        st.markdown("### 데이터/파라미터 요약")
-        st.write(f"Tickers: {', '.join(tickers)}")
-        st.write(f"기간: {start_date} ~ {end_date}")
-        st.write(f"Lookback (days): {lookback_days}")
-        st.write(f"Rebalance: {'Monthly' if rebalance_freq=='M' else 'Weekly'}")
-        st.write(f"Threshold: {threshold}")
-        st.write(f"Weight Split: {weight_split}")
+ 
 
     st.markdown("---")
     st.caption(
