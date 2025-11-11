@@ -278,21 +278,38 @@ def calculate_turnover(weight_history: pd.DataFrame, rebalance_freq: str) -> Tup
 # -------------------------
 # Helper functions for UI
 # -------------------------
-def weights_history_to_composition_dict(weight_history: pd.DataFrame) -> Dict[date, Dict[str, float]]:
-    """weight_history(DataFrame with 'date' column) -> {date: {ticker: weight}}"""
+def weights_history_to_composition_dict(weight_history: pd.DataFrame, rebalance_freq: str = 'M') -> Dict[date, Dict[str, float]]:
+    """
+    weight_history(DataFrame with 'date' column or date index) -> {date: {ticker: weight}}
+    For monthly rebalance ('M'), map entries to their month-end date (period end).
+    If multiple entries fall in same month, keep the last one (chronological).
+    """
     comp = {}
     if weight_history is None or len(weight_history) == 0:
         return comp
     wh = weight_history.copy()
+    # normalize date column/index
     if 'date' in wh.columns:
         wh['date'] = pd.to_datetime(wh['date'])
         wh = wh.set_index('date')
     wh = wh.sort_index()
+
     for idx, row in wh.iterrows():
-        d = pd.to_datetime(idx).date()
-        # row may contain non-ticker cols; keep only numeric columns
-        weights = {col: float(row[col]) for col in wh.columns if pd.api.types.is_numeric_dtype(row[col])}
-        comp[d] = weights
+        ts = pd.to_datetime(idx)
+        if rebalance_freq == 'M':
+            key = ts.to_period('M').to_timestamp('M').date()  # month-end date
+        else:
+            key = ts.date()
+        # extract numeric columns only (tickers)
+        weights = {}
+        for col in wh.columns:
+            try:
+                val = float(row[col])
+            except Exception:
+                continue
+            weights[col] = val
+        # if same month already present, replace (we iterate in chronological order)
+        comp[key] = weights
     return comp
 
 def get_rebalancing_changes(current: Dict[str,float], previous: Dict[str,float]) -> Dict[str, Dict]:
@@ -472,9 +489,9 @@ def main():
 
     # -------------------------- UI 출력 --------------------------
     st.subheader("성과 개요 및 차트")
-    col_left, col_right = st.columns([2, 1])
 
-    # Left: cumulative & log cumulative
+    # Put cumulative and log-cumulative side-by-side
+    col_left, col_right = st.columns(2)
     with col_left:
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=strat_cum.index, y=(strat_cum - 1) * 100, name="Strategy Cumulative (%)", line=dict(color=PRIMARY_COLOR, width=2)))
@@ -482,54 +499,51 @@ def main():
         fig.update_layout(title="누적수익률 (%)", xaxis_title="Date", yaxis_title="%", template="plotly_white", hovermode='x unified')
         st.plotly_chart(fig, use_container_width=True)
 
+    with col_right:
         fig_log = go.Figure()
         fig_log.add_trace(go.Scatter(x=strat_cum.index, y=np.log(np.maximum(strat_cum.values, 1e-8)), name="Strategy Log Cumulative", line=dict(color=PRIMARY_COLOR, width=2)))
         fig_log.add_trace(go.Scatter(x=bench_cum.index, y=np.log(np.maximum(bench_cum.values, 1e-8)), name="Benchmark Log Cumulative", line=dict(color=SECONDARY_COLOR, width=2, dash='dash')))
         fig_log.update_layout(title="로그 누적수익률", template="plotly_white", hovermode='x unified')
         st.plotly_chart(fig_log, use_container_width=True)
 
-    # Right: info + metrics
-    with col_right:
-        st.subheader("📋 백테스팅 정보")
-        common_index = portfolio_values.index
-        analysis_period = f"{common_index[0].strftime('%Y-%m')} ~ {common_index[-1].strftime('%Y-%m')}" if len(common_index)>0 else "-"
-        # derive weight bounds from latest weights if any
-        if weight_history is not None and len(weight_history) > 0:
-            wh_tmp = weight_history.copy()
-            if 'date' in wh_tmp.columns:
-                wh_tmp = wh_tmp.set_index('date')
-            latest_row = wh_tmp.iloc[-1].fillna(0)
-            lower_bound = float(latest_row.min())
-            upper_bound = float(latest_row.max())
-        else:
-            lower_bound = 0.0
-            upper_bound = 1.0
+    # Major metrics table under the charts (restored per request)
+    st.subheader("주요 지표")
+    ordered_index = ['Total Return (%)', 'CAGR (%)', 'Volatility (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Tracking Error (%)', 'Calmar Ratio']
+    metrics_df = pd.DataFrame(index=ordered_index)
+    if strategy_metrics is not None:
+        metrics_df = metrics_df.join(pd.DataFrame.from_dict(strategy_metrics, orient='index', columns=['Strategy']))
+    if benchmark_metrics is not None:
+        metrics_df = metrics_df.join(pd.DataFrame.from_dict(benchmark_metrics, orient='index', columns=['Benchmark']))
+    metrics_df = metrics_df.round(3).fillna("-")
+    st.dataframe(metrics_df, use_container_width=True)
 
-        info_df = pd.DataFrame({
-            '항목': ['분석 기간', '총 종목 수', '선택 종목 수', '리밸런싱', '가중치 범위', '예상 연간 회전율'],
-            '값': [
-                analysis_period,
-                f"{len(tickers)}개",
-                f"{len(tickers)}개",
-                "매월" if rebalance_freq=='M' else "매주",
-                f"{lower_bound:.1%} ~ {upper_bound:.1%}",
-                f"{annual_turnover:.2f}%"
-            ]
-        })
-        st.dataframe(info_df, use_container_width=True, hide_index=True)
-
-    # Max drawdown chart
-    st.subheader("낙폭 (Drawdown) 비교")
+    # Drawdown area chart (filled)
+    st.subheader("낙폭 (Drawdown) 비교 (영역형)")
     fig_dd = go.Figure()
-    fig_dd.add_trace(go.Scatter(x=strat_dd.index, y=strat_dd.values * 100, name="Strategy DD (%)", line=dict(color=PRIMARY_COLOR)))
-    fig_dd.add_trace(go.Scatter(x=bench_dd.index, y=bench_dd.values * 100, name="Benchmark DD (%)", line=dict(color=SECONDARY_COLOR, dash='dash')))
-    fig_dd.update_layout(title="Drawdown (%) over time", xaxis_title="Date", yaxis_title="Drawdown (%)", template="plotly_white", hovermode='x unified')
+    fig_dd.add_trace(go.Scatter(
+        x=strat_dd.index,
+        y=strat_dd.values * 100,
+        fill='tozeroy',
+        mode='none',
+        name='Strategy DD (%)',
+        fillcolor='rgba(255,20,147,0.25)'  # pale deeppink
+    ))
+    fig_dd.add_trace(go.Scatter(
+        x=bench_dd.index,
+        y=bench_dd.values * 100,
+        fill='tozeroy',
+        mode='none',
+        name='Benchmark DD (%)',
+        fillcolor='rgba(65,105,225,0.18)'  # pale royalblue
+    ))
+    fig_dd.update_layout(title="Drawdown (%) over time (area)", xaxis_title="Date", yaxis_title="Drawdown (%)", template="plotly_white", hovermode='x unified')
     st.plotly_chart(fig_dd, use_container_width=True)
 
     # ---------------- 리밸런싱 시점별 가중치 히스토리 (히트맵 + 테이블) ----------------
     st.subheader("리밸런싱 시점별 가중치 히스토리")
     if weight_history is None or len(weight_history) == 0:
         st.info("리밸런싱 가중치 이력이 없습니다.")
+        weights_composition = {}
     else:
         wh = weight_history.copy()
         if 'date' in wh.columns:
@@ -541,20 +555,23 @@ def main():
         wh_pct = (wh * 100).round(3)
         st.dataframe(wh_pct, use_container_width=True)
 
-        # heatmap (tickers on y, dates on x)
+        # heatmap - changed to pinkish sequential color scale (user requested)
         try:
             heat_df = wh.fillna(0).T
             heat_df.columns = [pd.to_datetime(c).strftime('%Y-%m-%d') if not isinstance(c, str) else c for c in heat_df.columns]
+            # Use a pink/purple sequential scale
             fig_heat = px.imshow(heat_df, labels=dict(x="Rebalance Date", y="Ticker", color="Weight"),
-                                 x=heat_df.columns, y=heat_df.index, color_continuous_scale='Blues', aspect="auto")
+                                 x=heat_df.columns, y=heat_df.index, color_continuous_scale='RdPu', aspect="auto")
             fig_heat.update_layout(height=400, template="plotly_white")
             st.plotly_chart(fig_heat, use_container_width=True)
         except Exception:
             st.warning("히트맵 생성 중 문제가 발생했습니다. 위 표를 확인하세요.")
 
+        # build weights_composition mapping, mapping monthly rebalance entries to month-end (fix for reported Nov10 -> Oct31)
+        weights_composition = weights_history_to_composition_dict(weight_history, rebalance_freq=rebalance_freq)
+
     # ---------------- 포트폴리오 업데이트 (최근 리밸런싱 기준) ----------------
     st.subheader(f"📰 포트폴리오 업데이트 ({date.today().strftime('%Y-%m')} 기준)")
-    weights_composition = weights_history_to_composition_dict(weight_history)
     if weights_composition:
         recent_dates = sorted(weights_composition.keys())
         latest_date = recent_dates[-1]
@@ -637,12 +654,6 @@ def main():
         fig_hist.update_layout(title="월별 수익률 분포", xaxis_title="월별 수익률 (%)", yaxis_title="빈도", barmode='overlay', template="plotly_white")
         st.plotly_chart(fig_hist, use_container_width=True)
 
-        fig_box = go.Figure()
-        fig_box.add_trace(go.Box(y=strat_monthly.values * 100, name='포트폴리오', marker_color=PRIMARY_COLOR))
-        fig_box.add_trace(go.Box(y=bench_monthly.values * 100, name='벤치마크', marker_color=SECONDARY_COLOR))
-        fig_box.update_layout(title='월별 수익률 분포 (Box)', yaxis_title='%', template="plotly_white")
-        st.plotly_chart(fig_box, use_container_width=True)
-
     with colm2:
         def rolling_sharpe(monthly_ret: pd.Series, window: int = 12):
             if monthly_ret is None or len(monthly_ret) < window:
@@ -716,7 +727,7 @@ def main():
         st.write(f"Min Weight Change: {min_weight_change}")
 
     st.markdown("---")
-    st.caption("색상테마: 주요 색상은 royalblue(보조)와 deeppink(포인트)입니다. 파이차트는 파스텔 팔레트를 사용합니다.")
+    st.caption("변경사항: (1) 백테스팅 정보 블록 제거, 주요 지표 섹션 복구(누적/로그 아래에 배치). (2) 히트맵을 핑크 계열로 변경, 낙폭 차트를 영역형으로 표시. (3) 월간 리밸런싱의 최신 리밸런싱 날짜는 '월말(직전월말)' 기준으로 매핑하여 Nov 10 같은 비정상적 날짜 대신 10월 말 등으로 표시하도록 수정했습니다. 파이차트는 파스텔 톤을 사용합니다.")
 
 if __name__ == "__main__":
     main()
