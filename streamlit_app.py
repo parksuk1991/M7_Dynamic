@@ -19,10 +19,7 @@ st.set_page_config(
 )
 
 # -------------------- 상단 레이아웃 + 업데이트 버튼 ---------------------
-col_title, col_img_credit = st.columns([9, 1])
-with col_title:
-    st.title("🌐 Global Market Monitoring")
-    update_clicked = st.button("Update", type="primary", use_container_width=False, key="main_update_btn")
+col_img_credit = st.columns([9, 1])
 with col_img_credit:
     image_url = "https://amateurphotographer.com/wp-content/uploads/sites/7/2017/08/Screen-Shot-2017-08-23-at-22.29.18.png?w=600.jpg"
     try:
@@ -38,15 +35,6 @@ with col_img_credit:
         '</div>',
         unsafe_allow_html=True
     )
-
-
-
-
-
-
-
-
-
 
 # =========================
 # 고정(하드코딩) 전략 파라미터
