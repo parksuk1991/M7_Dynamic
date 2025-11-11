@@ -385,10 +385,18 @@ def main():
         benchmark_option = st.selectbox("벤치마크 선택", options=["Equal Weight (tickers)", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
 
         st.markdown("---")
-        st.markdown("전략 파라미터는 고정되어 있습니다:")
-        st.caption(f"Lookback: {OPTIMAL_PARAMS['lookback_months']} months ({OPTIMAL_PARAMS['lookback_days']} days), Rebalance: {'Monthly' if OPTIMAL_PARAMS['rebalance_freq']=='M' else 'Weekly'}, Threshold: {OPTIMAL_PARAMS['threshold']}, Weight Split: {OPTIMAL_PARAMS['weight_split']}, Min Weight Change: {OPTIMAL_PARAMS['min_weight_change']}")
+       
+        # 파라미터 표시
+        st.subheader("🎯 최적 파라미터")
+        st.info(f"""
+        **Lookback:** {OPTIMAL_PARAMS['lookback_months']}개월  
+        **Rebalancing:** {"Weekly" if OPTIMAL_PARAMS['rebalance_freq']=='W' else "Monthly"}  
+        **Threshold:** {abs(OPTIMAL_PARAMS['threshold'])*100:.0f}%  
+        **Weight Split:** {OPTIMAL_PARAMS['weight_split']*100:.0f}%  
+        **Min Weight Change:** {OPTIMAL_PARAMS['min_weight_change']*100:.0f}%
+        """)
         run_button = st.button("🚀 포트폴리오 분석 실행", type="primary", use_container_width=True)
-
+    
     if not run_button:
         st.info("사이드바에서 티커 및 기간을 설정한 뒤 '포트폴리오 분석 실행'을 눌러 결과를 보세요.")
         return
