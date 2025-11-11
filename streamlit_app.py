@@ -504,14 +504,14 @@ def main():
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=strat_cum.index, y=(strat_cum - 1) * 100, name="Strategy Cumulative (%)", line=dict(color=PRIMARY_COLOR, width=2)))
         fig.add_trace(go.Scatter(x=bench_cum.index, y=(bench_cum - 1) * 100, name="Benchmark Cumulative (%)", line=dict(color=SECONDARY_COLOR, width=2, dash='dash')))
-        fig.update_layout(title="누적수익률 (%)", template="plotly_white", hovermode='x unified', legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)')
+        fig.update_layout(title="누적수익률 (%)", template="plotly_white", hovermode='x unified', legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)'))
         st.plotly_chart(fig, use_container_width=True)
 
     with col_right:
         fig_log = go.Figure()
         fig_log.add_trace(go.Scatter(x=strat_cum.index, y=np.log(np.maximum(strat_cum.values, 1e-8)), name="Strategy Log Cumulative", line=dict(color=PRIMARY_COLOR, width=2)))
         fig_log.add_trace(go.Scatter(x=bench_cum.index, y=np.log(np.maximum(bench_cum.values, 1e-8)), name="Benchmark Log Cumulative", line=dict(color=SECONDARY_COLOR, width=2, dash='dash')))
-        fig_log.update_layout(title="로그 누적수익률", template="plotly_white", hovermode='x unified', legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)')
+        fig_log.update_layout(title="로그 누적수익률", template="plotly_white", hovermode='x unified', legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)'))
         st.plotly_chart(fig_log, use_container_width=True)
 
     # Major metrics table under the charts (restored per request)
