@@ -37,7 +37,7 @@ BENCHMARK_TICKER = 'QQQ'
 # Color theme
 PRIMARY_COLOR = 'deeppink'
 SECONDARY_COLOR = 'royalblue'
-PASTEL_PALETTE = px.colors.sequential.RdPu
+PASTEL_PALETTE = px.colors.sequential.RdPu_r
 
 # -------------------------
 # 캐시 / 유틸리티 함수
