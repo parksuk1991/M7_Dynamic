@@ -343,9 +343,27 @@ def create_excess_return_heatmap(strat_returns: pd.Series, bench_returns: pd.Ser
 # 스트림릿 UI
 # -------------------------
 def main():
-    st.title("📈 M7 Contrarian Strategy")
-    st.markdown("동적 리밸런싱(고정 파라미터)을 기반으로 한 컨트래리언 포트폴리오 분석 및 시각화")
-
+    # -------------------- 상단 레이아웃 ---------------------
+    col_title, col_img_credit = st.columns([9, 1])
+    with col_title:
+        st.title("📈 U.S. Contrarian Strategy")
+        st.markdown("동적 리밸런싱(고정 파라미터)을 기반으로 한 컨트래리언 포트폴리오 분석 및 시각화")
+    with col_img_credit:
+        image_url = "https://amateurphotographer.com/wp-content/uploads/sites/7/2017/08/Screen-Shot-2017-08-23-at-22.29.18.png?w=600.jpg"
+        try:
+            response = requests.get(image_url, timeout=5)
+            response.raise_for_status()
+            img = Image.open(BytesIO(response.content))
+            st.image(img, width=150, caption=None)
+        except Exception:
+            st.info("이미지를 불러올 수 없습니다.")
+        st.markdown(
+            '<div style="text-align: left; margin-bottom: 3px; font-size:0.9rem;">'
+            'Data 출처: <a href="https://finance.yahoo.com/" target="_blank">Yahoo Finance</a>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+        
     with st.sidebar:
         st.header("⚙️ 설정")
         st.subheader("종목 티커 (콤마로 구분)")
