@@ -384,7 +384,7 @@ def main():
         st.subheader("📈 벤치마크")
         benchmark_option = st.selectbox("벤치마크 선택", options=["Equal Weight (tickers)", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
        
-        st.subheader("🎯 최적 파라미터(Pre-trained)")
+        st.subheader("🎯 최적 파라미터\n(Pre-trained)")
         st.info(f"""
         **Lookback:** {OPTIMAL_PARAMS['lookback_months']}개월  
         **Rebalancing:** {"Weekly" if OPTIMAL_PARAMS['rebalance_freq']=='W' else "Monthly"}  
