@@ -302,10 +302,10 @@ def get_rebalancing_changes(current: Dict[str,float], previous: Dict[str,float])
         changes[k] = {'previous': prev, 'current': cur, 'change': change, 'action': action}
     return changes
 
-def create_monthly_return_table_with_excess(strat_returns: pd.Series, bench_returns: pd.Series) -> pd.DataFrame:
+def create_excess_return_heatmap(strat_returns: pd.Series, bench_returns: pd.Series) -> pd.DataFrame:
     """
-    월별 수익률 테이블 생성 (포트폴리오, 벤치마크, 초과성과)
-    행: 연도, 열: 월(Jan-Dec)
+    초과성과 히트맵용 데이터 생성
+    행: 연도, 열: 월(Jan-Dec), 값: 초과성과(%)
     """
     # 일별 수익률을 월별 수익률로 변환 (복리)
     strat_monthly = (1 + strat_returns).resample('M').prod() - 1
@@ -316,51 +316,28 @@ def create_monthly_return_table_with_excess(strat_returns: pd.Series, bench_retu
     strat_monthly = strat_monthly.reindex(common_idx)
     bench_monthly = bench_monthly.reindex(common_idx)
     
-    # 초과성과
+    # 초과성과 계산
     excess = strat_monthly - bench_monthly
     
     # 데이터프레임 생성
-    df_strat = strat_monthly.to_frame(name='ret')
-    df_strat['year'] = df_strat.index.year
-    df_strat['month'] = df_strat.index.month
-    
-    df_bench = bench_monthly.to_frame(name='ret')
-    df_bench['year'] = df_bench.index.year
-    df_bench['month'] = df_bench.index.month
-    
     df_excess = excess.to_frame(name='ret')
     df_excess['year'] = df_excess.index.year
     df_excess['month'] = df_excess.index.month
     
     # 피벗
-    pivot_strat = df_strat.pivot_table(index='year', columns='month', values='ret', aggfunc='first')
-    pivot_bench = df_bench.pivot_table(index='year', columns='month', values='ret', aggfunc='first')
     pivot_excess = df_excess.pivot_table(index='year', columns='month', values='ret', aggfunc='first')
     
     # 1-12월 컬럼 재정렬
-    pivot_strat = pivot_strat.reindex(columns=range(1,13))
-    pivot_bench = pivot_bench.reindex(columns=range(1,13))
     pivot_excess = pivot_excess.reindex(columns=range(1,13))
     
     # 퍼센트 변환 (2자리)
-    pivot_strat_pct = (pivot_strat * 100).round(2)
-    pivot_bench_pct = (pivot_bench * 100).round(2)
     pivot_excess_pct = (pivot_excess * 100).round(2)
     
     # 월 이름으로 변환
     month_names = [datetime(1900, m, 1).strftime('%b') for m in range(1,13)]
-    pivot_strat_pct.columns = month_names
-    pivot_bench_pct.columns = month_names
     pivot_excess_pct.columns = month_names
     
-    # 3개 테이블을 멀티인덱스로 결합
-    combined = pd.concat({
-        'Portfolio': pivot_strat_pct,
-        'Benchmark': pivot_bench_pct,
-        'Excess': pivot_excess_pct
-    }, axis=1)
-    
-    return combined
+    return pivot_excess_pct
 
 # -------------------------
 # 스트림릿 UI
@@ -627,18 +604,44 @@ def main():
                           legend=dict(x=0.02, y=0.98, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)'))
     st.plotly_chart(fig_hist, use_container_width=True)
 
-    st.subheader("연도별 · 월별 수익률 표 (Portfolio | Benchmark | Excess)")
-    monthly_table = create_monthly_return_table_with_excess(strat_returns, bench_returns)
-    if not monthly_table.empty:
-        st.markdown("### 월별 수익률 (%) - 포트폴리오, 벤치마크, 초과성과")
-        st.dataframe(monthly_table.fillna('-'), use_container_width=True)
+    st.subheader("연도별 · 월별 초과성과 히트맵")
+    excess_heatmap = create_excess_return_heatmap(strat_returns, bench_returns)
+    if not excess_heatmap.empty:
+        st.markdown("### 월별 초과성과 (%) - Portfolio vs Benchmark")
+        
+        # 히트맵 생성 (RdYlGn 컬러스케일: 빨강=음수, 노랑=0, 초록=양수)
+        fig_heatmap = go.Figure(data=go.Heatmap(
+            z=excess_heatmap.values,
+            x=excess_heatmap.columns,
+            y=excess_heatmap.index,
+            colorscale='RdYlGn',
+            zmid=0,
+            text=excess_heatmap.values,
+            texttemplate='%{text:.2f}',
+            textfont={"size": 10},
+            colorbar=dict(title="Excess Return (%)")
+        ))
+        
+        fig_heatmap.update_layout(
+            title="월별 초과성과 히트맵 (행: 연도, 열: 월)",
+            xaxis_title="Month",
+            yaxis_title="Year",
+            height=max(400, len(excess_heatmap) * 40),
+            template="plotly_white"
+        )
+        
+        st.plotly_chart(fig_heatmap, use_container_width=True)
+        
+        # 데이터 테이블도 함께 표시
+        st.markdown("### 초과성과 수치 테이블")
+        st.dataframe(excess_heatmap.fillna('-'), use_container_width=True)
     else:
-        st.info("월별 수익률 데이터가 부족합니다.")
+        st.info("초과성과 데이터가 부족합니다.")
 
     st.subheader("포트폴리오 구성 히스토리 (최근 6개월)")
     if 'weights_composition' in locals() and weights_composition:
-        recent_dates = sorted(weights_composition.keys())[-6:]
-        for date_key in recent_dates:
+        recent_dates_comp = sorted(weights_composition.keys())[-6:]
+        for date_key in recent_dates_comp:
             weights = weights_composition[date_key]
             with st.expander(f"{date_key.strftime('%Y-%m-%d')} 포트폴리오 구성"):
                 weights_df = pd.DataFrame([
@@ -669,6 +672,13 @@ def main():
             st.download_button("가중치 히스토리 CSV 다운로드", 
                              data=wh_dl.to_csv(index=False).encode('utf-8'),
                              file_name="weight_history.csv", mime="text/csv")
+        
+        # 초과성과 테이블 다운로드 추가
+        if not excess_heatmap.empty:
+            csv_excess = excess_heatmap.to_csv().encode('utf-8')
+            st.download_button("초과성과 테이블 CSV 다운로드", data=csv_excess,
+                             file_name="excess_returns.csv", mime="text/csv")
+    
     with c2:
         st.markdown("### 데이터/파라미터 요약")
         st.write(f"Tickers: {', '.join(tickers)}")
@@ -680,8 +690,9 @@ def main():
 
     st.markdown("---")
     st.caption(
-        "✅ 월별 수익률 계산 수정: 일별 수익률을 월별로 정확히 복리 계산합니다. "
-        "✅ 3개 테이블 통합: Portfolio, Benchmark, Excess 수익률을 하나의 테이블에 표시합니다."
+        "✅ 월별 초과성과 히트맵: 빨강(음수) → 노랑(0) → 초록(양수)으로 초과성과를 시각화합니다. "
+        "✅ 각 셀에는 정확한 수치(%)가 표시됩니다. "
+        "✅ 히트맵 아래에 수치 테이블도 함께 제공됩니다."
     )
 
 if __name__ == "__main__":
