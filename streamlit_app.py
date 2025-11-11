@@ -376,7 +376,7 @@ def main():
         tickers = [t.strip().upper() for t in tickers_input.replace(';', ',').split(',') if t.strip() != ""]
 
         st.subheader("📅 기간 설정")
-        default_start = datetime(2015, 01, 01)
+        default_start = datetime(2015, 1, 1)
         default_end = datetime.now()
         start_date = st.date_input("시작일", value=default_start.date(), min_value=datetime(1990,1,1).date(), max_value=default_end.date())
         end_date = st.date_input("종료일", value=default_end.date(), min_value=start_date, max_value=default_end.date())
