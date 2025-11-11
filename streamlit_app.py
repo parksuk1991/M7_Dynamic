@@ -534,7 +534,8 @@ def main():
         fill='tozeroy',
         mode='none',
         name='Strategy DD (%)',
-        fillcolor='rgba(255,20,147,0.4)'  # pale deeppink
+        line=dict(color='royalblue', width=1),
+        fillcolor='rgba(255,20,147,0.3)'  # pale deeppink
     ))
     fig_dd.add_trace(go.Scatter(
         x=bench_dd.index,
@@ -542,7 +543,8 @@ def main():
         fill='tozeroy',
         mode='none',
         name='Benchmark DD (%)',
-        fillcolor='rgba(65,105,225,0.4)'  # pale royalblue
+        line=dict(color='royalblue', width=1),
+        fillcolor='rgba(65,105,225,0.3)'  # pale royalblue
     ))
     fig_dd.update_layout(title="Drawdown (%) over time (area)", xaxis_title="Date", yaxis_title="Drawdown (%)", template="plotly_white", hovermode='x unified')
     st.plotly_chart(fig_dd, use_container_width=True)
