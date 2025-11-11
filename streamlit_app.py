@@ -276,7 +276,7 @@ def calculate_turnover(weight_history: pd.DataFrame, rebalance_freq: str) -> Tup
     return monthly_turnover * 100, annual_turnover * 100
 
 # -------------------------
-# Helper functions for UI
+# 수정된 함수: weights_history_to_composition_dict
 # -------------------------
 def weights_history_to_composition_dict(weight_history: pd.DataFrame, rebalance_freq: str = 'M') -> Dict[date, Dict[str, float]]:
     """
@@ -285,11 +285,13 @@ def weights_history_to_composition_dict(weight_history: pd.DataFrame, rebalance_
     If multiple entries fall in same month, keep the last one (chronological).
     IMPORTANT: if rebalance_freq == 'M' and today is not month-end, we will only consider months up to the previous month-end.
     """
-    comp = {}
+    comp: Dict[date, Dict[str, float]] = {}
     if weight_history is None or len(weight_history) == 0:
         return comp
+
     wh = weight_history.copy()
-    # normalize date column/index
+
+    # Normalize date column/index to pandas.Timestamp index for robust handling
     if 'date' in wh.columns:
         wh['date'] = pd.to_datetime(wh['date'])
         wh = wh.set_index('date')
@@ -298,29 +300,30 @@ def weights_history_to_composition_dict(weight_history: pd.DataFrame, rebalance_
     for idx, row in wh.iterrows():
         ts = pd.to_datetime(idx)
         if rebalance_freq == 'M':
-            key = ts.to_period('M').to_timestamp('M').date()  # month-end date
+            # convert to month-end date (datetime.date)
+            key = ts.to_period('M').to_timestamp('M').date()
         else:
             key = ts.date()
         # extract numeric columns only (tickers)
-        weights = {}
+        weights: Dict[str, float] = {}
         for col in wh.columns:
-            # skip non-numeric columns defensively
             try:
                 val = float(row[col])
             except Exception:
                 continue
             weights[col] = val
-        # if same month already present, replace (we iterate in chronological order)
+        # last-in-month wins (we iterate chronologically)
         comp[key] = weights
 
     # If monthly rebalance, ensure we don't expose current partial-month rebalances:
     if rebalance_freq == 'M':
-        today = date.today()
-        # previous month-end (last completed month)
-        last_month_end = (today.replace(day=1) - timedelta(days=1)).date()
-        # keep only months <= last_month_end
+        today_date = date.today()
+        # compute previous month-end (last completed month)
+        first_of_this_month = today_date.replace(day=1)
+        last_month_end = first_of_this_month - timedelta(days=1)   # datetime.date, no .date() call
+        # keep only months up to last_month_end (inclusive)
         comp = {k: v for k, v in comp.items() if k <= last_month_end}
-        # If there are keys earlier than last_month_end, they remain; ensure we use the latest <= last_month_end when selecting latest
+
     return comp
 
 def get_rebalancing_changes(current: Dict[str,float], previous: Dict[str,float]) -> Dict[str, Dict]:
