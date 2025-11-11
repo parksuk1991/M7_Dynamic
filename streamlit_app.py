@@ -281,8 +281,17 @@ def main():
         st.subheader("🔧 전략 파라미터 (선택)")
         lookback_months = st.number_input("Lookback (months)", min_value=1, max_value=24, value=DEFAULT_PARAMS['lookback_months'])
         rebalance_freq = st.selectbox("Rebalance Frequency", options=['M','W'], format_func=lambda x: "Monthly" if x=='M' else "Weekly", index=0)
-        threshold = st.slider("Threshold (negative drawdown, %)", min_value=-100.0, max_value=0.0, value=DEFAULT_PARAMS['threshold']*100) / 100.0
-        weight_split = st.slider("Weight split to deep drawdown group (%)", min_value=0.0, max_value=100.0, value=int(DEFAULT_PARAMS['weight_split']*100)) / 100.0
+        threshold = st.slider("Threshold (negative drawdown, %)", min_value=-100.0, max_value=0.0, value=float(DEFAULT_PARAMS['threshold']*100), step=1.0) / 100.0
+
+        # FIX: ensure slider step type matches min/max types (both floats) -> use float step
+        weight_split = st.slider(
+            "Weight split to deep drawdown group (%)",
+            min_value=0.0,
+            max_value=100.0,
+            value=float(DEFAULT_PARAMS['weight_split']*100),
+            step=1.0
+        ) / 100.0
+
         min_weight_change = st.number_input("Min weight change to trigger rebalance (absolute sum)", min_value=0.0, max_value=1.0, value=DEFAULT_PARAMS['min_weight_change'])
 
         st.markdown("---")
