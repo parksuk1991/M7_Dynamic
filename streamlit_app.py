@@ -18,24 +18,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# -------------------- 상단 레이아웃 + 업데이트 버튼 ---------------------
-col_img_credit = st.columns([9, 1])
-with col_img_credit:
-    image_url = "https://amateurphotographer.com/wp-content/uploads/sites/7/2017/08/Screen-Shot-2017-08-23-at-22.29.18.png?w=600.jpg"
-    try:
-        response = requests.get(image_url, timeout=5)
-        response.raise_for_status()
-        img = Image.open(BytesIO(response.content))
-        st.image(img, width=150, caption=None)
-    except Exception:
-        st.info("이미지를 불러올 수 없습니다.")
-    st.markdown(
-        '<div style="text-align: left; margin-bottom: 3px; font-size:0.9rem;">'
-        'Data 출처: <a href="https://finance.yahoo.com/" target="_blank">Yahoo Finance</a>'
-        '</div>',
-        unsafe_allow_html=True
-    )
-
 # =========================
 # 고정(하드코딩) 전략 파라미터
 # =========================
