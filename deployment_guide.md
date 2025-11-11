@@ -1,8 +1,8 @@
-# M7 Portfolio Monitor - 배포 가이드 🚀
+# M7 Portfolio Monitor - 배포 🚀
 
 ## 📁 파일 구조
 
-배포 전에 다음과 같은 파일 구조를 확인하세요:
+파일 구조를 확인:
 
 ```
 your-repo/
@@ -68,9 +68,9 @@ git push -u origin main
 
 ### 3. 배포 확인
 
-- 배포는 보통 2-5분 소요됩니다
-- 배포 진행 상황은 실시간으로 표시됩니다
-- 완료되면 자동으로 앱 URL이 생성됩니다 (예: `your-app-name.streamlit.app`)
+- 배포는 보통 2-5분 소요
+- 배포 진행 상황은 실시간으로 표시
+- 완료되면 자동으로 앱 URL이 생성 (예: `your-app-name.streamlit.app`)
 
 ## ⚙️ 환경 설정 (선택사항)
 
@@ -93,7 +93,7 @@ git commit -m "Update: 변경 내용 설명"
 git push origin main
 ```
 
-**Streamlit Cloud가 자동으로 감지하여 재배포합니다!**
+**Streamlit Cloud가 자동으로 감지하여 재배포!**
 
 ## 🐛 문제 해결
 
@@ -232,5 +232,3 @@ font = "sans serif"
 - [ ] 문서 업데이트
 
 ---
-
-**축하합니다! 🎉 이제 M7 Portfolio Monitor가 온라인에서 실행됩니다!**
