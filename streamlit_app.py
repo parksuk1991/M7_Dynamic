@@ -344,7 +344,7 @@ def create_excess_return_heatmap(strat_returns: pd.Series, bench_returns: pd.Ser
 # -------------------------
 def main():
     # -------------------- 상단 레이아웃 ---------------------
-    col_title, col_img_credit = st.columns([10, 1])
+    col_title, col_img_credit = st.columns([8, 1])
     with col_title:
         st.title("📈 U.S. Contrarian Strategy")
         st.markdown("동적 리밸런싱(고정 파라미터)을 기반으로 한 컨트래리언 포트폴리오 분석 및 시각화")
