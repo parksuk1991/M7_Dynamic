@@ -554,7 +554,7 @@ def main():
                 st.dataframe(current_df, use_container_width=True, hide_index=True)
 
                 fig_pie = px.pie(names=list(current_weights.keys()), values=list(current_weights.values()),
-                                title="📒 현재 비중 분포", color_discrete_sequence=PASTEL_PALETTE)
+                                title="📒 현재 비중 분포", color_discrete_sequence=RdPu)
                 fig_pie.update_traces(textposition='inside', textinfo='percent+label')
                 fig_pie.update_layout(height=400, template="plotly_white")
                 st.plotly_chart(fig_pie, use_container_width=True)
