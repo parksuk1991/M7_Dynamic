@@ -609,13 +609,12 @@ def main():
     if not excess_heatmap.empty:
         st.markdown("### 월별 초과성과 (%) - Portfolio vs Benchmark")
         
-        # 히트맵 생성 (RdYlGn 컬러스케일: 빨강=음수, 노랑=0, 초록=양수)
+        # 히트맵 생성 (RdPu 컬러스케일: 리밸런싱 가중치 표와 동일)
         fig_heatmap = go.Figure(data=go.Heatmap(
             z=excess_heatmap.values,
             x=excess_heatmap.columns,
             y=excess_heatmap.index,
-            colorscale='RdYlGn',
-            zmid=0,
+            colorscale='RdPu',
             text=excess_heatmap.values,
             texttemplate='%{text:.2f}',
             textfont={"size": 10},
@@ -627,7 +626,17 @@ def main():
             xaxis_title="Month",
             yaxis_title="Year",
             height=max(400, len(excess_heatmap) * 40),
-            template="plotly_white"
+            template="plotly_white",
+            xaxis=dict(
+                side='top',  # x축을 위로 이동
+                tickmode='linear',
+                dtick=1
+            ),
+            yaxis=dict(
+                tickmode='linear',  # 모든 연도 표시
+                dtick=1,
+                autorange='reversed'  # 최신 연도가 위로 오도록
+            )
         )
         
         st.plotly_chart(fig_heatmap, use_container_width=True)
