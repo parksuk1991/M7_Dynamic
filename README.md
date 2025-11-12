@@ -170,19 +170,14 @@ requests>=2.31.0
 ```
 m7-contrarian-strategy/
 │
-├── app.py                  # 메인 Streamlit 애플리케이션
+├── streamlit_app.py                  # 메인 Streamlit 애플리케이션
 ├── requirements.txt        # Python 의존성
 ├── README.md              # 본 파일
-├── LICENSE                # MIT 라이선스
 │
-├── utils/                 # 유틸리티 함수 (선택사항)
-│   ├── data_loader.py
-│   ├── backtest.py
-│   └── metrics.py
+├── temp/                 # temp
+│   ├── original.py
 │
 └── docs/                  # 추가 문서
-    ├── strategy_paper.pdf
-    └── examples.md
 ```
 
 ---
