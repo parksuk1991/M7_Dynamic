@@ -173,6 +173,7 @@ main/
 ├── streamlit_app.py      # 메인 Streamlit 애플리케이션
 ├── requirements.txt      # Python 의존성
 ├── README.md             # 본 파일
+├── faq_document.md       # FAQ
 │
 ├── temp/                 # cached
 │   ├── original.py
