@@ -461,7 +461,7 @@ def main():
         with col2:
             st.markdown("""
             <div style="
-                height: 900px;
+                height: 905px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
