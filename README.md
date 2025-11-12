@@ -28,7 +28,8 @@ Link: https://m7dynamic.streamlit.app/
 
 ## 📊 전략 로직
 
-### Pre-trained 파라미터
+### Pre-trained 파라미터 
+#### <font color='blueviolet'>파라미터는 Look-ahead bias 통제 하에 최적화된 Fixed 값입니다.
 
 | 파라미터 | 값 | 설명 |
 |---------|---|------|
