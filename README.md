@@ -7,7 +7,7 @@
 
 > **낙폭 과대 기준 Mean Reversion 포트폴리오 전략**  
 
-M7 Contrarian Strategy: https://m7dynamic.streamlit.app/
+Link: https://m7dynamic.streamlit.app/
 
 ---
 
@@ -415,13 +415,8 @@ SOFTWARE.
 ### 개발자 연락처
 
 질문, 버그 리포트, 기능 제안이 있으시면 언제든지 연락주세요:
-
-**📩 Email**: [your.email@example.com](mailto:your.email@example.com)
-
-### 지원 채널
-
-- **이슈 트래커**: [GitHub Issues](https://github.com/yourusername/m7-contrarian-strategy/issues)
-- **토론 포럼**: [GitHub Discussions](https://github.com/yourusername/m7-contrarian-strategy/discussions)
+**Made by CP3**
+**📩 Email**: [your.email@example.com](mailto:parksuk1991@gmail.com)
 
 ### 피드백
 
