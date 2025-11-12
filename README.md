@@ -410,8 +410,10 @@ SOFTWARE.
 ### 개발자 연락처
 
 질문, 버그 리포트, 기능 제안이 있으시면 언제든지 연락주세요:
+
 **Made by CP3**
-**📩 Email**: [your.email@example.com](mailto:parksuk1991@gmail.com)
+
+**📩 Email**: [parksuk1991@gmail.com](mailto:parksuk1991@gmail.com)
 
 ### 피드백
 
