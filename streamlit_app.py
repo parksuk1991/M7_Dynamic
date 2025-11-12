@@ -381,7 +381,7 @@ def main():
             #### ✔️ 전략 요약
             - Drawdown 기준 Threshold 이하 하락 종목에 Weight Split% 배분 | 나머지 종목에 (1-Weight Split)% 배분
             - Threshold 이하로 하락한 종목이 없을 경우 전체를 하락폭 비례로 배분
-            - 모든 파라미터는 Walk Forward 최적화로 Pre-trained 완료(좌측 사이드바 참고) | Look-ahead Bias 통제 완료
+            - 모든 파라미터는 Walk Forward 최적화로 Look-ahead Bias 통제 하에 Pre-trained 완료(좌측 사이드바 참고)
 
             #### 📊 예시
             ###### 상황
