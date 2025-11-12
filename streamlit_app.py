@@ -433,18 +433,14 @@ def main():
             ###### <font color='black'>파라미터: Threshold=-30%, Weight Split=60%, Cap Weight=60%
             ###### <font color='black'>상황 1: 일반적인 경우
                   TSLA: -40% | NVDA: -30% | AAPL: -10% | MSFT: -5% | 나머지: -8%, -12%, -6%
-              
-                  심각한 하락 그룹 (60% 배분):
+                  - 심각한 하락 그룹 (60% 배분):
                   TSLA: 40/(40+30) × 60% = 34.3%, NVDA: 30/(40+30) × 60% = 25.7%
-
-                  일반적 하락 그룹 (40% 배분):
+                  - 일반적 하락 그룹 (40% 배분):
                   AAPL: 10/(10+5+8+12+6) × 40% = 9.8%, MSFT: 5/(10+5+8+12+6) × 40% = 4.9% ... 
-
-                  최종 비중: [34.3%, 25.7%, 9.8%, 4.9%, ...] (모두 60% 이하이므로 조정 없음)
+                  - 최종 비중: [34.3%, 25.7%, 9.8%, 4.9%, ...] (모두 60% 이하이므로 조정 없음)
 
             ###### <font color='black'>상황 2: 모든 종목 상승
-                  모든 종목의 Drawdown = 0 (상승만 함)
-                  → 균등 가중: 각 14.3% (7종목 기준)
+                  모든 종목의 Drawdown = 0 (상승만 함) → 동일 가중: 각 14.3% (7종목 기준)
 
             ###### <font color='black'>상황 3: Cap Weight 초과
                   초기 계산 비중: [70%, 15%, 10%, 5%] (4종목)
@@ -456,7 +452,7 @@ def main():
         with col2:
             st.markdown("""
             <div style="
-                height: 888px;
+                height: 900px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
