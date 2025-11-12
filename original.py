@@ -10,9 +10,13 @@ from typing import List, Tuple, Optional, Dict
 
 warnings.filterwarnings('ignore')
 
+import requests
+from PIL import Image
+from io import BytesIO
+
 # 페이지 설정
 st.set_page_config(
-    page_title="U.S. Contrarian Strategy",
+    page_title="M7 Contrarian Strategy",
     page_icon="📈",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -343,28 +347,108 @@ def create_excess_return_heatmap(strat_returns: pd.Series, bench_returns: pd.Ser
 # 스트림릿 UI
 # -------------------------
 def main():
-    st.title("📈 M7 Contrarian Strategy")
-    st.markdown("동적 리밸런싱(고정 파라미터)을 기반으로 한 컨트래리언 포트폴리오 분석 및 시각화")
+    # -------------------- 상단 레이아웃 ---------------------
+    col_title, col_img_credit = st.columns([8, 1])
+    with col_title:
+        st.title("📈 M7 Contrarian Strategy")
+        st.markdown("낙폭 과대 기준 Mean Reversion 포트폴리오")
+    with col_img_credit:
+        image_url = "https://amateurphotographer.com/wp-content/uploads/sites/7/2017/08/Screen-Shot-2017-08-23-at-22.29.18.png?w=600.jpg"
+        try:
+            response = requests.get(image_url, timeout=5)
+            response.raise_for_status()
+            img = Image.open(BytesIO(response.content))
+            st.image(img, width=150, caption=None)
+        except Exception:
+            st.info("이미지를 불러올 수 없습니다.")
+        st.markdown(
+            '<div style="text-align: left; margin-bottom: 3px; font-size:0.9rem;">'
+            'Data 출처: <a href="https://finance.yahoo.com/" target="_blank">Yahoo Finance</a>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+    #st.markdown("---")
+    with st.expander("📋 전략 로직 자세히 보기", expanded=False):
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown("""
+            #### 🎯 주요 파라미터
+            - **Drawdown(3M)**: 고점 대비 하락률로 최근 3개월 고점 기준 하락폭이 클수록 저평가 판단
+            - **Threshold(-30%)**: 심각한 하락의 기준  
+            - **Weight Split(60%)**: 심각한 하락 종목(-30% 이하)에 60%를 배분하고 나머지 40%은 다른 종목에 분산
+            
+            #### ✔️ 전략 요약
+            - Drawdown 기준 Threshold 이하 하락 종목에 Weight Split% 배분 | 나머지 종목에 (1-Weight Split)% 배분
+            - Threshold 이하로 하락한 종목이 없을 경우 전체를 하락폭 비례로 배분
+            - 모든 파라미터는 Walk Forward 최적화로 Look-ahead Bias 통제 하에 Pre-trained 완료(좌측 사이드바 참고)
+
+            #### 📊 예시
+            ###### 상황
+              - TSLA: -40% (심각한 하락) | NVDA: -30% (심각한 하락) | AAPL: -10% (일반적 하락) | MSFT: -5% (일반적 하락) | 나머지: -8%, -12%, -6% (일반적 하락)
+              - 파라미터: Threshold=-30%, Weight Split=60%
+              
+            ###### 계산 과정
+                
+                  심각한 하락 그룹 (60% 배분):
+                  TSLA: 40/(40+30) × 60% = 34.3%, NVDA: 30/(40+30) × 60% = 25.7%
+
+                  일반적 하락 그룹 (40% 배분):
+                  AAPL: 10/(10+5+8+12+6) × 40% = 9.8%, MSFT: 5/(10+5+8+12+6) × 40% = 4.9% ... (나머지 계산)
+
+                  최종 비중: [34.3%, 25.7%, 9.8%, 4.9%, ...]
+
+            """)
+        with col2:
+            st.markdown("""
+            <div style="
+                height: 600px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-radius: 15px;
+                margin-top: 40px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                position: relative;
+                overflow: hidden;
+            ">
+                <div style="
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Cdefs%3E%3Cpattern id=%22grain%22 width=%22100%22 height=%22100%22 p[...]
+                "></div>
+            </div>
+            """, unsafe_allow_html=True)
 
     with st.sidebar:
         st.header("⚙️ 설정")
-        st.subheader("종목 티커 (콤마로 구분)")
+        # st.subheader("종목 티커 (콤마로 구분)") # subheader 필요 X
         tickers_default = ", ".join(M7_TICKERS)
-        tickers_input = st.text_area("티커 목록", value=tickers_default, placeholder="예: AAPL, MSFT, TSLA", height=120)
+        
+        tickers_input = st.text_area(
+            "종목 티커 (콤마로 구분)", 
+            value=tickers_default, 
+            placeholder="예: AAPL, MSFT, TSLA", 
+            height=100,
+            help="Default Tickers: M7" 
+        )
+        
         tickers = [t.strip().upper() for t in tickers_input.replace(';', ',').split(',') if t.strip() != ""]
-
-        st.subheader("📅 기간 설정")
-        default_start = datetime(2017, 1, 1)
+      
+        st.subheader("📅 기간 ")
+        default_start = datetime(2015, 1, 1)
         default_end = datetime.now()
         start_date = st.date_input("시작일", value=default_start.date(), min_value=datetime(1990,1,1).date(), max_value=default_end.date())
         end_date = st.date_input("종료일", value=default_end.date(), min_value=start_date, max_value=default_end.date())
 
         st.subheader("📈 벤치마크")
-        benchmark_option = st.selectbox("벤치마크 선택", options=["Equal Weight (tickers)", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
-
-        st.markdown("---")
+        benchmark_option = st.selectbox("벤치마크 선택", options=["동일 가중 포트폴리오", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
        
-        st.subheader("🎯 최적 파라미터")
+        st.subheader("🎯 최적 파라미터\n(Pre-trained Parameters)")
         st.info(f"""
         **Lookback:** {OPTIMAL_PARAMS['lookback_months']}개월  
         **Rebalancing:** {"Weekly" if OPTIMAL_PARAMS['rebalance_freq']=='W' else "Monthly"}  
@@ -372,17 +456,17 @@ def main():
         **Weight Split:** {OPTIMAL_PARAMS['weight_split']*100:.0f}%  
         **Min Weight Change:** {OPTIMAL_PARAMS['min_weight_change']*100:.0f}%
         """)
-        run_button = st.button("🚀 포트폴리오 분석 실행", type="primary", use_container_width=True)
+        run_button = st.button("🚀 포트폴리오 생성", type="primary", use_container_width=True)
     
     if not run_button:
-        st.info("사이드바에서 티커 및 기간을 설정한 뒤 '포트폴리오 분석 실행'을 눌러 결과를 보세요.")
+        st.info("사이드바에서 티커, 기간, 벤치마크 설정 후 '포트폴리오 생성' 클릭")
         return
 
     if len(tickers) == 0:
         st.error("티커 목록이 비어 있습니다. 하나 이상의 티커를 입력하세요.")
         return
 
-    with st.spinner("티커별 전체 사용가능한 첫 거래일을 조회 중..."):
+    with st.spinner("데이터 처리 중..."):
         first_dates = {t: get_first_available_date(t) for t in tickers}
 
     not_listed = []
@@ -413,7 +497,7 @@ def main():
             benchmark_name = BENCHMARK_TICKER
         else:
             benchmark_prices = prices.copy()
-            benchmark_name = "Equal Weight"
+            benchmark_name = "Equal Weight Portfolio"
 
     if prices is None or prices.empty:
         st.error("종목 데이터 다운로드 실패 또는 기간 내 데이터가 없습니다.")
@@ -462,7 +546,7 @@ def main():
     bench_dd = drawdown_ts(bench_cum)
 
     # UI 출력
-    st.subheader("성과 개요 및 차트")
+    st.subheader("성과")
 
     col_left, col_right = st.columns(2)
     with col_left:
@@ -501,12 +585,12 @@ def main():
                                  showlegend=False, fillcolor='rgba(65,105,225,0.12)', hoverinfo='x+y'))
     fig_dd.add_trace(go.Scatter(x=bench_dd.index, y=bench_dd.values * 100, mode='lines', name='Benchmark DD',
                                  line=dict(color=SECONDARY_COLOR, width=1, dash='dash')))
-    fig_dd.update_layout(title="Drawdown (%) over time", xaxis_title="Date", yaxis_title="Drawdown (%)",
+    fig_dd.update_layout(xaxis_title="Date", yaxis_title="Drawdown (%)",
                          template="plotly_white", hovermode='x unified',
                          legend=dict(x=1.02, y=1.0, xanchor='left', yanchor='top'))
     st.plotly_chart(fig_dd, use_container_width=True)
 
-    st.subheader("리밸런싱 시점별 가중치 히스토리")
+    st.subheader("비중 히스토리")
     if weight_history is None or len(weight_history) == 0:
         st.info("리밸런싱 가중치 이력이 없습니다.")
         weights_composition = {}
@@ -517,7 +601,6 @@ def main():
             wh = wh.set_index('date')
         wh = wh.sort_index()
         
-        st.markdown("### 리밸런싱별 가중치 표")
         wh_pct = (wh * 100).round(3)
         st.dataframe(wh_pct, use_container_width=True)
 
@@ -554,14 +637,14 @@ def main():
                 st.dataframe(current_df, use_container_width=True, hide_index=True)
 
                 fig_pie = px.pie(names=list(current_weights.keys()), values=list(current_weights.values()),
-                                title="📒 현재 비중 분포", color_discrete_sequence=PASTEL_PALETTE)
+                                title="📒 현재 비중", color_discrete_sequence=PASTEL_PALETTE, template='plotly_dark')
                 fig_pie.update_traces(textposition='inside', textinfo='percent+label')
                 fig_pie.update_layout(height=400, template="plotly_white")
                 st.plotly_chart(fig_pie, use_container_width=True)
 
             with col2:
                 if previous_weights:
-                    st.write(f"**📙 전월 대비 리밸런싱 변화** ({previous_date.strftime('%Y-%m-%d')} → {latest_date.strftime('%Y-%m-%d')})")
+                    st.write(f"**📙 전월 대비 리밸런싱 추이** ({previous_date.strftime('%Y-%m-%d')} → {latest_date.strftime('%Y-%m-%d')})")
                     changes = get_rebalancing_changes(current_weights, previous_weights)
                     sorted_changes = sorted(changes.items(), key=lambda x: abs(x[1]['change']), reverse=True)
                     rebalancing_data = []
@@ -582,7 +665,7 @@ def main():
                     fig_rebal = go.Figure(data=[go.Bar(x=stocks, y=[x*100 for x in changes_values],
                                                        marker_color=colors, text=[f"{x:+.2%}" for x in changes_values],
                                                        textposition='auto')])
-                    fig_rebal.update_layout(title="📗 리밸런싱 변화 (%p)", xaxis_title="종목", yaxis_title="비중 변화 (%p)",
+                    fig_rebal.update_layout(title="📗 리밸런싱 추이 (%p)", xaxis_title="종목", yaxis_title="비중 변화 (%p)",
                                            template="plotly_white", height=400)
                     st.plotly_chart(fig_rebal, use_container_width=True)
                 else:
@@ -604,7 +687,7 @@ def main():
                           legend=dict(x=0.02, y=0.98, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)'))
     st.plotly_chart(fig_hist, use_container_width=True)
 
-    st.subheader("연도별 · 월별 초과성과 히트맵")
+    st.subheader("초과성과 히트맵")
     excess_heatmap = create_excess_return_heatmap(strat_returns, bench_returns)
     if not excess_heatmap.empty:
         st.markdown("### 월별 초과성과 (%) - Portfolio vs Benchmark")
@@ -622,7 +705,6 @@ def main():
         ))
         
         fig_heatmap.update_layout(
-            title="월별 초과성과 히트맵 (행: 연도, 열: 월)",
             xaxis_title="Month",
             yaxis_title="Year",
             height=max(400, len(excess_heatmap) * 40),
@@ -640,10 +722,7 @@ def main():
         )
         
         st.plotly_chart(fig_heatmap, use_container_width=True)
-        
-        # 데이터 테이블도 함께 표시
-        st.markdown("### 초과성과 수치 테이블")
-        st.dataframe(excess_heatmap.fillna('-'), use_container_width=True)
+
     else:
         st.info("초과성과 데이터가 부족합니다.")
 
@@ -662,47 +741,20 @@ def main():
                     st.dataframe(weights_df, use_container_width=True, hide_index=True)
                 with colB:
                     fig_pie = px.pie(names=list(weights.keys()), values=list(weights.values()),
-                                   title="가중치 분포", color_discrete_sequence=PASTEL_PALETTE)
+                                   title="가중치 분포", color_discrete_sequence=PASTEL_PALETTE, template='plotly_dark')
                     fig_pie.update_traces(textinfo='percent+label')
                     fig_pie.update_layout(height=300, template="plotly_white")
                     st.plotly_chart(fig_pie, use_container_width=True)
     else:
         st.info("가중치 히스토리가 없습니다.")
 
-    st.subheader("추가 도구 및 내보내기")
-    c1, c2 = st.columns([1,1])
-    with c1:
-        csv_port = portfolio_values.rename("portfolio").to_frame().to_csv().encode('utf-8')
-        st.download_button("포트폴리오 가치(시계열) CSV 다운로드", data=csv_port, 
-                          file_name="portfolio_values.csv", mime="text/csv")
-        if weight_history is not None and len(weight_history) > 0:
-            wh_dl = weight_history.copy()
-            wh_dl['date'] = wh_dl['date'].astype(str) if 'date' in wh_dl.columns else wh_dl.index.astype(str)
-            st.download_button("가중치 히스토리 CSV 다운로드", 
-                             data=wh_dl.to_csv(index=False).encode('utf-8'),
-                             file_name="weight_history.csv", mime="text/csv")
-        
-        # 초과성과 테이블 다운로드 추가
-        if not excess_heatmap.empty:
-            csv_excess = excess_heatmap.to_csv().encode('utf-8')
-            st.download_button("초과성과 테이블 CSV 다운로드", data=csv_excess,
-                             file_name="excess_returns.csv", mime="text/csv")
-    
-    with c2:
-        st.markdown("### 데이터/파라미터 요약")
-        st.write(f"Tickers: {', '.join(tickers)}")
-        st.write(f"기간: {start_date} ~ {end_date}")
-        st.write(f"Lookback (days): {lookback_days}")
-        st.write(f"Rebalance: {'Monthly' if rebalance_freq=='M' else 'Weekly'}")
-        st.write(f"Threshold: {threshold}")
-        st.write(f"Weight Split: {weight_split}")
+ 
 
     st.markdown("---")
-    st.caption(
-        "✅ 월별 초과성과 히트맵: 빨강(음수) → 노랑(0) → 초록(양수)으로 초과성과를 시각화합니다. "
-        "✅ 각 셀에는 정확한 수치(%)가 표시됩니다. "
-        "✅ 히트맵 아래에 수치 테이블도 함께 제공됩니다."
-    )
+    #st.caption(
+    #    "✅ temp 추후 주석용 "
+    #    "✅ temp 추후 주석용 "
+    #)
 
 if __name__ == "__main__":
     main()
