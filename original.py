@@ -373,22 +373,22 @@ def main():
         col1, col2 = st.columns([3, 1])
         with col1:
             st.markdown("""
-            #### 🎯 주요 파라미터
-            - **Drawdown(3M)**: 고점 대비 하락률로 최근 3개월 고점 기준 하락폭이 클수록 저평가 판단
-            - **Threshold(-30%)**: 심각한 하락의 기준  
-            - **Weight Split(60%)**: 심각한 하락 종목(-30% 이하)에 60%를 배분하고 나머지 40%은 다른 종목에 분산
+            #### 🎯 <font color='blueviolet'>주요 파라미터 <font color='black'>
+            - <font color='black'>**Drawdown(3M)**: 고점 대비 하락률로 최근 3개월 고점 기준 하락폭이 클수록 저평가 판단
+            - <font color='black'>**Threshold(-30%)**: 심각한 하락의 기준  
+            - <font color='black'>**Weight Split(60%)**: 심각한 하락 종목(-30% 이하)에 60%를 배분하고 나머지 40%은 다른 종목에 분산
             
-            #### ✔️ 전략 요약
-            - Drawdown 기준 Threshold 이하 하락 종목에 Weight Split% 배분 | 나머지 종목에 (1-Weight Split)% 배분
-            - Threshold 이하로 하락한 종목이 없을 경우 전체를 하락폭 비례로 배분
-            - 모든 파라미터는 Walk Forward 최적화로 Look-ahead Bias 통제 하에 Pre-trained 완료(좌측 사이드바 참고)
+            #### ✔️ <font color='blueviolet'>전략 요약 <font color='black'>
+            - <font color='black'>Drawdown 기준 Threshold 이하 하락 종목에 Weight Split% 배분 | 나머지 종목에 (1-Weight Split)% 배분
+            - <font color='black'>Threshold 이하로 하락한 종목이 없을 경우 전체를 하락폭 비례로 배분
+            - <font color='black'>모든 파라미터는 Walk Forward 최적화로 Look-ahead Bias 통제 하에 Pre-trained 완료(좌측 사이드바 참고)
 
-            #### 📊 예시
-            ###### 상황
-              - TSLA: -40% (심각한 하락) | NVDA: -30% (심각한 하락) | AAPL: -10% (일반적 하락) | MSFT: -5% (일반적 하락) | 나머지: -8%, -12%, -6% (일반적 하락)
-              - 파라미터: Threshold=-30%, Weight Split=60%
+            #### 📊 <font color='blueviolet'>예시
+            ###### <font color='black'>상황
+              - <font color='black'>TSLA: -40% (심각한 하락) | NVDA: -30% (심각한 하락) | AAPL: -10% (일반적 하락) | MSFT: -5% (일반적 하락) | 나머지: -8%, -12%, -6% (일반적 하락)
+              - <font color='black'>파라미터: Threshold=-30%, Weight Split=60%
               
-            ###### 계산 과정
+            ###### <font color='black'>계산 과정
                 
                   심각한 하락 그룹 (60% 배분):
                   TSLA: 40/(40+30) × 60% = 34.3%, NVDA: 30/(40+30) × 60% = 25.7%
@@ -398,11 +398,11 @@ def main():
 
                   최종 비중: [34.3%, 25.7%, 9.8%, 4.9%, ...]
 
-            """)
+            """, unsafe_allow_html=True)
         with col2:
             st.markdown("""
             <div style="
-                height: 600px;
+                height: 666px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
