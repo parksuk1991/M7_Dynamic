@@ -398,7 +398,7 @@ def main():
 
                   최종 비중: [34.3%, 25.7%, 9.8%, 4.9%, ...]
 
-            """)
+            """, unsafe_allow_html=True)
         with col2:
             st.markdown("""
             <div style="
