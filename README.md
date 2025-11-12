@@ -7,7 +7,7 @@
 
 > **낙폭 과대 기준 Mean Reversion 포트폴리오 전략**  
 
-![M7 Strategy Banner](https://via.placeholder.com/1200x300/667eea/ffffff?text=M7+Contrarian+Strategy)
+![M7 Strategy Banner]([https://via.placeholder.com/1200x300/667eea/ffffff?text=M7+Contrarian+Strategy](https://m7dynamic.streamlit.app/))
 
 ---
 
