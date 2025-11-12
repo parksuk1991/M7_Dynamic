@@ -372,7 +372,7 @@ def main():
         st.header("⚙️ 설정")
         st.subheader("종목 티커 (콤마로 구분)")
         tickers_default = ", ".join(M7_TICKERS)
-        tickers_input = st.text_area("Default: M7", value=tickers_default, placeholder="예: AAPL, MSFT, TSLA", height=100)
+        tickers_input = st.text_area("Default Tickers: M7", value=tickers_default, placeholder="예: AAPL, MSFT, TSLA", height=100)
         tickers = [t.strip().upper() for t in tickers_input.replace(';', ',').split(',') if t.strip() != ""]
 
         st.subheader("📅 기간 ")
@@ -433,7 +433,7 @@ def main():
             benchmark_name = BENCHMARK_TICKER
         else:
             benchmark_prices = prices.copy()
-            benchmark_name = "Equal Weight"
+            benchmark_name = "Equal Weight Portfolio"
 
     if prices is None or prices.empty:
         st.error("종목 데이터 다운로드 실패 또는 기간 내 데이터가 없습니다.")
