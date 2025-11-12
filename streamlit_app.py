@@ -229,7 +229,7 @@ def backtest_strategy(prices: pd.DataFrame, lookback_days: int, rebalance_freq: 
     weight_df = pd.DataFrame(weight_history)
     return portfolio_series, weight_df
 
-def calculate_performance_metrics(value_series: pd.Series, benchmark_series: Optional[pd.Series] = None) -> dict:
+def calculate_performance_metrics(value_series: pd.Series, benchmark_series: Optional[pd.Series] = None, is_benchmark: bool = False) -> dict:
     """성과 지표 계산."""
     out = {}
     if value_series is None or len(value_series.dropna()) < 2:
@@ -257,14 +257,16 @@ def calculate_performance_metrics(value_series: pd.Series, benchmark_series: Opt
     calmar = float(cagr / abs(mdd)) if abs(mdd) > 0.001 else 0.0
 
     tracking_error = None
-    if benchmark_series is not None and len(benchmark_series.dropna()) > 2:
-        bvals = benchmark_series.reindex(values.index).dropna()
-        if len(bvals) > 1:
-            bret = bvals.pct_change().dropna()
-            common_idx = returns.index.intersection(bret.index)
-            if len(common_idx) > 1:
-                diff = returns.reindex(common_idx) - bret.reindex(common_idx)
-                tracking_error = float(diff.std() * np.sqrt(252) * 100)
+    # 벤치마크 자체일 경우 Tracking Error는 N/A
+    if not is_benchmark:
+        if benchmark_series is not None and len(benchmark_series.dropna()) > 2:
+            bvals = benchmark_series.reindex(values.index).dropna()
+            if len(bvals) > 1:
+                bret = bvals.pct_change().dropna()
+                common_idx = returns.index.intersection(bret.index)
+                if len(common_idx) > 1:
+                    diff = returns.reindex(common_idx) - bret.reindex(common_idx)
+                    tracking_error = float(diff.std() * np.sqrt(252) * 100)
 
     out['Total Return (%)'] = total_return
     out['CAGR (%)'] = cagr
@@ -587,8 +589,8 @@ def main():
         bench_returns = returns.mean(axis=1)
         bench_vals = (1 + bench_returns).cumprod() * 100.0
 
-    strategy_metrics = calculate_performance_metrics(portfolio_values, bench_vals)
-    benchmark_metrics = calculate_performance_metrics(bench_vals, portfolio_values)
+    strategy_metrics = calculate_performance_metrics(portfolio_values, bench_vals, is_benchmark=False)
+    benchmark_metrics = calculate_performance_metrics(bench_vals, portfolio_values, is_benchmark=True)
     monthly_turnover, annual_turnover = calculate_turnover(weight_history, rebalance_freq)
 
     strat_returns = portfolio_values.pct_change().fillna(0)
@@ -625,13 +627,26 @@ def main():
         st.plotly_chart(fig_log, use_container_width=True)
 
     st.subheader("주요 지표")
-    ordered_index = ['Total Return (%)', 'CAGR (%)', 'Volatility (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Tracking Error (%)', 'Calmar Ratio']
+    ordered_index = ['Total Return (%)', 'CAGR (%)', 'Volatility (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Tracking Error (%)', 'Calmar Ratio', 'Annual Turnover (%)']
     metrics_df = pd.DataFrame(index=ordered_index)
+    
     if strategy_metrics is not None:
-        metrics_df = metrics_df.join(pd.DataFrame.from_dict(strategy_metrics, orient='index', columns=['Strategy']))
+        strat_dict = strategy_metrics.copy()
+        strat_dict['Annual Turnover (%)'] = annual_turnover
+        metrics_df = metrics_df.join(pd.DataFrame.from_dict(strat_dict, orient='index', columns=['Strategy']))
+    
     if benchmark_metrics is not None:
-        metrics_df = metrics_df.join(pd.DataFrame.from_dict(benchmark_metrics, orient='index', columns=[benchmark_name]))
-    metrics_df = metrics_df.round(3).fillna("-")
+        bench_dict = benchmark_metrics.copy()
+        bench_dict['Annual Turnover (%)'] = np.nan  # 벤치마크는 회전율 N/A
+        metrics_df = metrics_df.join(pd.DataFrame.from_dict(bench_dict, orient='index', columns=[benchmark_name]))
+    
+    # Tracking Error가 NaN인 경우 "-"로 표시
+    metrics_df = metrics_df.replace({np.nan: "-"})
+    
+    # 숫자형 데이터만 반올림
+    for col in metrics_df.columns:
+        metrics_df[col] = metrics_df[col].apply(lambda x: round(x, 3) if isinstance(x, (int, float)) else x)
+    
     st.dataframe(metrics_df, use_container_width=True)
 
     st.subheader("낙폭 (Drawdown)")
