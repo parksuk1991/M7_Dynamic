@@ -377,30 +377,25 @@ def main():
             - **Drawdown(3M)**: 고점 대비 하락률로 최근 3개월 고점 기준 하락폭이 클수록 저평가 판단
             - **Threshold(-30%)**: 심각한 하락의 기준  
             - **Weight Split(60%)**: 심각한 하락 종목(-30% 이하)에 60%를 배분하고 나머지 40%은 다른 종목에 분산
-            - 많이 하락한 종목 = 저평가 가능성 -> 더 높은 비중, 적게 하락한 종목 = 고평가 가능성 -> 더 낮은 비중
-            - Mean Reversion 효과 기대
             
             #### ✔️ 전략 요약
+            - 많이 하락한 종목 = 저평가 가능성 -> 더 높은 비중 배분, 적게 하락한 종목 = 고평가 가능성 -> 더 낮은 비중 배분하여 Mean Reversion 효과 기대
             - Drawdown을 기준으로 Threshold 이하 하락 종목에 Weight Split% 배분(하락폭 비례)
             - 나머지 종목에 (1-Weight Split)% 배분
             - Threshold 이하로 하락한 종목이 없을 경우 전체를 하락폭 비례로 배분
-            - Walk Forward 최적화로 Threshold Weight, Lookback month N, Weight Split, Rebalancing Frequency, Minimum Weight Change를 결정하고 Look-ahead Bias 통제
+            - Walk Forward 최적화로 Threshold Weight, Lookback Month, Weight Split, Rebalancing Frequency, Minimum Weight Change를 결정, Look-ahead Bias 통제
 
             #### 📊 예시
               상황
-              TSLA: -40% (심각한 하락)
-              NVDA: -30% (심각한 하락)
-              AAPL: -10% (일반적 하락)
-              MSFT: -5% (일반적 하락)
-              나머지: -8%, -12%, -6% (일반적 하락)
-              파라미터: threshold=-30%, weight_split=60%
+              - TSLA: -40% (심각한 하락) | NVDA: -30% (심각한 하락) | AAPL: -10% (일반적 하락) | MSFT: -5% (일반적 하락) | 나머지: -8%, -12%, -6% (일반적 하락)
+              - 파라미터: threshold=-30%, weight_split=60%
               
-              계산 과정
-                  Insane drop 그룹 (60% 배분):
+                  계산 과정
+                  심각한 하락 그룹 (60% 배분):
                   TSLA: 40/(40+30) × 60% = 34.3%
                   NVDA: 30/(40+30) × 60% = 25.7%
 
-                  Decent drop 그룹 (40% 배분):
+                  일반적 하락 그룹 (40% 배분):
                   AAPL: 10/(10+5+8+12+6) × 40% = 9.8%
                   MSFT: 5/(10+5+8+12+6) × 40% = 4.9%
                   ... (나머지 계산)
