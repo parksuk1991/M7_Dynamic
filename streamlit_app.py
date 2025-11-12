@@ -626,7 +626,7 @@ def main():
                 st.dataframe(current_df, use_container_width=True, hide_index=True)
 
                 fig_pie = px.pie(names=list(current_weights.keys()), values=list(current_weights.values()),
-                                title="📒 현재 비중", color_discrete_sequence=PASTEL_PALETTE)
+                                title="📒 현재 비중", color_discrete_sequence=PASTEL_PALETTE, template='plotly_dark')
                 fig_pie.update_traces(textposition='inside', textinfo='percent+label')
                 fig_pie.update_layout(height=400, template="plotly_white")
                 st.plotly_chart(fig_pie, use_container_width=True)
@@ -730,7 +730,7 @@ def main():
                     st.dataframe(weights_df, use_container_width=True, hide_index=True)
                 with colB:
                     fig_pie = px.pie(names=list(weights.keys()), values=list(weights.values()),
-                                   title="가중치 분포", color_discrete_sequence=PASTEL_PALETTE)
+                                   title="가중치 분포", color_discrete_sequence=PASTEL_PALETTE, template='plotly_dark')
                     fig_pie.update_traces(textinfo='percent+label')
                     fig_pie.update_layout(height=300, template="plotly_white")
                     st.plotly_chart(fig_pie, use_container_width=True)
