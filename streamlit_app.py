@@ -369,19 +369,18 @@ def main():
         )
 
     #st.markdown("---")
-    with st.expander("📋 전략 로직", expanded=False):
+    with st.expander("📋 전략 로직 자세히 보기", expanded=False):
         col1, col2 = st.columns([3, 1])
         with col1:
             st.markdown("""
-            #### 🎯 개요
+            #### 🎯 주요 파라미터
             - **Drawdown(3M)**: 고점 대비 하락률로 최근 3개월 고점 기준 하락폭이 클수록 저평가 판단
             - **Threshold(-30%)**: 심각한 하락의 기준  
             - **Weight Split(60%)**: 심각한 하락 종목(-30% 이하)에 60%를 배분하고 나머지 40%은 다른 종목에 분산
             
             #### ✔️ 전략 요약
             - 많이 하락한 종목 = 저평가 가능성 -> 더 높은 비중 배분, 적게 하락한 종목 = 고평가 가능성 -> 더 낮은 비중 배분하여 Mean Reversion 효과 기대
-            - Drawdown을 기준으로 Threshold 이하 하락 종목에 Weight Split% 배분(하락폭 비례)
-            - 나머지 종목에 (1-Weight Split)% 배분
+            - Drawdown을 기준으로 Threshold 이하 하락 종목에 Weight Split% 배분(하락폭 비례) | 나머지 종목에 (1-Weight Split)% 배분
             - Threshold 이하로 하락한 종목이 없을 경우 전체를 하락폭 비례로 배분
             - Walk Forward 최적화로 Threshold Weight, Lookback Month, Weight Split, Rebalancing Frequency, Minimum Weight Change를 결정, Look-ahead Bias 통제
 
