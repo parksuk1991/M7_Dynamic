@@ -688,8 +688,8 @@ def main():
 
     st.markdown("---")
     #st.caption(
-    #    "✅ temp "
-    #    "✅ temp "
+    #    "✅ temp 추후 주석용 "
+    #    "✅ temp 추후 주석용 "
     #)
 
 if __name__ == "__main__":
