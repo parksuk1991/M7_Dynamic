@@ -386,11 +386,11 @@ def main():
             - Walk Forward 최적화로 Threshold Weight, Lookback Month, Weight Split, Rebalancing Frequency, Minimum Weight Change를 결정, Look-ahead Bias 통제
 
             #### 📊 예시
-            ##### 상황
+            ###### 상황
               - TSLA: -40% (심각한 하락) | NVDA: -30% (심각한 하락) | AAPL: -10% (일반적 하락) | MSFT: -5% (일반적 하락) | 나머지: -8%, -12%, -6% (일반적 하락)
               - 파라미터: threshold=-30%, weight_split=60%
               
-            ##### 계산 과정
+            ###### 계산 과정
                 
                   심각한 하락 그룹 (60% 배분):
                   TSLA: 40/(40+30) × 60% = 34.3%
