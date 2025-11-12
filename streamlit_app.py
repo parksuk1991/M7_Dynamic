@@ -351,7 +351,7 @@ def main():
     col_title, col_img_credit = st.columns([8, 1])
     with col_title:
         st.title("📈 M7 Contrarian Strategy")
-        st.markdown("낙폭 과대 기준 동적 리밸런싱 포트폴리오")
+        st.markdown("낙폭 과대 기준 Mean Reversion 포트폴리오")
     with col_img_credit:
         image_url = "https://amateurphotographer.com/wp-content/uploads/sites/7/2017/08/Screen-Shot-2017-08-23-at-22.29.18.png?w=600.jpg"
         try:
@@ -379,8 +379,7 @@ def main():
             - **Weight Split(60%)**: 심각한 하락 종목(-30% 이하)에 60%를 배분하고 나머지 40%은 다른 종목에 분산
             
             #### ✔️ 전략 요약
-            - 많이 하락한 종목 = 저평가 가능성 -> 더 높은 비중 배분, 적게 하락한 종목 = 고평가 가능성 -> 더 낮은 비중 배분하여 Mean Reversion 효과 기대
-            - Drawdown을 기준으로 Threshold 이하 하락 종목에 Weight Split% 배분(하락폭 비례) | 나머지 종목에 (1-Weight Split)% 배분
+            - Drawdown 기준 Threshold 이하 하락 종목에 Weight Split% 배분(하락폭 비례) | 나머지 종목에 (1-Weight Split)% 배분
             - Threshold 이하로 하락한 종목이 없을 경우 전체를 하락폭 비례로 배분
             - Walk Forward 최적화로 Threshold Weight, Lookback Month, Weight Split, Rebalancing Frequency, Minimum Weight Change를 결정, Look-ahead Bias 통제
 
