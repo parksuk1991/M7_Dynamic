@@ -560,7 +560,7 @@ def main():
     min_weight_change = OPTIMAL_PARAMS['min_weight_change']
     cap_weight = OPTIMAL_PARAMS['cap_weight']
 
-    with st.spinner("백테스팅 중..."):
+    with st.spinner("로딩중..."):
         portfolio_values, weight_history = backtest_strategy(
             prices, lookback_days, rebalance_freq, threshold, weight_split, min_weight_change, cap_weight
         )
