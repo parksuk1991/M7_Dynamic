@@ -31,7 +31,8 @@ OPTIMAL_PARAMS = {
     'rebalance_freq': 'M',
     'threshold': -0.3,
     'weight_split': 0.60,
-    'min_weight_change': 0.0
+    'min_weight_change': 0.0,
+    'cap_weight': 0.60  # 최대 비중 제한 추가
 }
 
 # 기본/디폴트 티커 (M7)
@@ -80,8 +81,25 @@ def calculate_drawdown_from_peak(prices: pd.DataFrame, lookback_days: int) -> pd
     rolling_max = prices.rolling(window=lookback_days, min_periods=1).max()
     return (prices - rolling_max) / rolling_max
 
-def calculate_weights_by_drawdown(drawdowns: pd.Series, threshold: float, weight_split: float) -> pd.Series:
-    """하락률 기반 가중치 계산."""
+def calculate_weights_by_drawdown(drawdowns: pd.Series, threshold: float, weight_split: float, cap_weight: float = 1.0) -> pd.Series:
+    """
+    하락률 기반 가중치 계산 with Cap Weight 제한.
+    
+    Parameters:
+    -----------
+    drawdowns : pd.Series
+        각 종목의 drawdown 값
+    threshold : float
+        심각한 하락 기준 (예: -0.3)
+    weight_split : float
+        심각한 하락 종목에 배분할 비율 (예: 0.6)
+    cap_weight : float
+        단일 종목 최대 비중 (예: 0.6)
+    
+    Returns:
+    --------
+    pd.Series : 조정된 가중치
+    """
     if drawdowns is None or len(drawdowns.dropna()) == 0:
         idx = drawdowns.index if drawdowns is not None else []
         return pd.Series(1.0 / max(1, len(idx)), index=idx)
@@ -113,10 +131,38 @@ def calculate_weights_by_drawdown(drawdowns: pd.Series, threshold: float, weight
         weights = pd.Series(1.0 / len(idx), index=idx)
     else:
         weights = weights / weights.sum()
+    
+    # Cap Weight 적용: 최대 비중 초과 시 pro-rata 재조정
+    max_iterations = 10  # 무한루프 방지
+    iteration = 0
+    
+    while weights.max() > cap_weight and iteration < max_iterations:
+        # 최대 비중 종목 찾기
+        max_ticker = weights.idxmax()
+        excess = weights[max_ticker] - cap_weight
+        
+        # 최대 비중 종목을 cap으로 제한
+        weights[max_ticker] = cap_weight
+        
+        # 나머지 종목들에 초과분 재분배
+        other_tickers = weights.index[weights.index != max_ticker]
+        if len(other_tickers) > 0 and weights[other_tickers].sum() > 0:
+            # 기존 비중 비율대로 재분배
+            weights[other_tickers] = weights[other_tickers] * (1 + excess / weights[other_tickers].sum())
+        else:
+            # 모든 나머지 종목이 0이면 균등 배분
+            weights[other_tickers] = excess / len(other_tickers)
+        
+        iteration += 1
+    
+    # 최종 정규화 (반올림 오차 보정)
+    if weights.sum() > 0:
+        weights = weights / weights.sum()
+    
     return weights
 
 def backtest_strategy(prices: pd.DataFrame, lookback_days: int, rebalance_freq: str, threshold: float,
-                      weight_split: float, min_weight_change: float = 0.0) -> Tuple[pd.Series, pd.DataFrame]:
+                      weight_split: float, min_weight_change: float = 0.0, cap_weight: float = 1.0) -> Tuple[pd.Series, pd.DataFrame]:
     """백테스트 수행."""
     if prices is None or prices.empty:
         return pd.Series(dtype=float), pd.DataFrame()
@@ -158,7 +204,7 @@ def backtest_strategy(prices: pd.DataFrame, lookback_days: int, rebalance_freq: 
             prices_up_to = prices.loc[:date]
             drawdowns = calculate_drawdown_from_peak(prices_up_to, lookback_days)
             cur_dd = drawdowns.loc[date] if isinstance(drawdowns, pd.DataFrame) else drawdowns
-            target_weights = calculate_weights_by_drawdown(cur_dd, threshold, weight_split)
+            target_weights = calculate_weights_by_drawdown(cur_dd, threshold, weight_split, cap_weight)
             aligned_target = target_weights.reindex(prices.columns).fillna(0)
             weight_change_sum = (aligned_target - last_weights).abs().sum()
 
@@ -361,6 +407,14 @@ def main():
             st.image(img, width=150, caption=None)
         except Exception:
             st.info("이미지를 불러올 수 없습니다.")
+            
+        st.markdown(
+        "<div style='margin-top: -1px; text-align:center;'>"
+        "<span style='font-size:0.75rem; color:#888;'>Made by CP3</span>"
+        "</div>",
+        unsafe_allow_html=True
+        )
+       
         st.markdown(
             '<div style="text-align: left; margin-bottom: 3px; font-size:0.9rem;">'
             'Data 출처: <a href="https://finance.yahoo.com/" target="_blank">Yahoo Finance</a>'
@@ -368,7 +422,6 @@ def main():
             unsafe_allow_html=True
         )
 
-    #st.markdown("---")
     with st.expander("📋 전략 로직 자세히 보기", expanded=False):
         col1, col2 = st.columns([3, 1])
         with col1:
@@ -377,32 +430,38 @@ def main():
             - <font color='black'>**Drawdown(3M)**: 고점 대비 하락률로 최근 3개월 고점 기준 하락폭이 클수록 저평가 판단
             - <font color='black'>**Threshold(-30%)**: 심각한 하락의 기준  
             - <font color='black'>**Weight Split(60%)**: 심각한 하락 종목(-30% 이하)에 60%를 배분하고 나머지 40%은 다른 종목에 분산
+            - <font color='black'>**Cap Weight(60%)**: 단일 종목 최대 비중 제한 (초과 시 pro-rata 재분배)
             
             #### ✔️ <font color='blueviolet'>전략 요약 <font color='black'>
             - <font color='black'>Drawdown 기준 Threshold 이하 하락 종목에 Weight Split% 배분 | 나머지 종목에 (1-Weight Split)% 배분
             - <font color='black'>Threshold 이하로 하락한 종목이 없을 경우 전체를 하락폭 비례로 배분
-            - <font color='black'>모든 파라미터는 Walk Forward 최적화로 Look-ahead Bias 통제 하에 Pre-trained 완료(좌측 사이드바 참고)
+            - <font color='black'>모든 파라미터는 Walk Forward 최적화로 Look-ahead Bias 통제 하에 Pre-trained 완료
 
             #### 📊 <font color='blueviolet'>예시
-            ###### <font color='black'>상황
-              - <font color='black'>TSLA: -40% (심각한 하락) | NVDA: -30% (심각한 하락) | AAPL: -10% (일반적 하락) | MSFT: -5% (일반적 하락) | 나머지: -8%, -12%, -6% (일반적 하락)
-              - <font color='black'>파라미터: Threshold=-30%, Weight Split=60%
-              
-            ###### <font color='black'>계산 과정
-                
-                  심각한 하락 그룹 (60% 배분):
+            ###### <font color='deeppink'>파라미터: Threshold=-30%, Weight Split=60%, Cap Weight=60%
+            ###### <font color='black'>상황 1: 일반적인 경우
+                  TSLA: -40% | NVDA: -30% | AAPL: -10% | MSFT: -5% | 나머지: -8%, -12%, -6%
+                  
+                  1) 심각한 하락 그룹 (60% 배분):
                   TSLA: 40/(40+30) × 60% = 34.3%, NVDA: 30/(40+30) × 60% = 25.7%
+                  2) 일반적 하락 그룹 (40% 배분):
+                  AAPL: 10/(10+5+8+12+6) × 40% = 9.8%, MSFT: 5/(10+5+8+12+6) × 40% = 4.9% ... 
+                  - 최종 비중: [34.3%, 25.7%, 9.8%, 4.9%, ...] (모두 60% 이하이므로 조정 없음)
 
-                  일반적 하락 그룹 (40% 배분):
-                  AAPL: 10/(10+5+8+12+6) × 40% = 9.8%, MSFT: 5/(10+5+8+12+6) × 40% = 4.9% ... (나머지 계산)
+            ###### <font color='black'>상황 2: 모든 종목 상승
+                  모든 종목의 Drawdown = 0 (상승만 함) → 동일 가중: 각 14.3% (7종목 기준)
 
-                  최종 비중: [34.3%, 25.7%, 9.8%, 4.9%, ...]
+            ###### <font color='black'>상황 3: Cap Weight 초과
+                  초기 계산 비중: [70%, 15%, 10%, 5%] (4종목)
+                  Cap Weight=60% 적용:
+                    -1차: 70% → 60%, 초과분 10%를 나머지에 재분배
+                    -재분배 후: [60%, 18%, 14%, 8%] (합=100%)
 
             """, unsafe_allow_html=True)
         with col2:
             st.markdown("""
             <div style="
-                height: 666px;
+                height: 905px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -419,14 +478,12 @@ def main():
                     left: 0;
                     right: 0;
                     bottom: 0;
-                    background: url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Cdefs%3E%3Cpattern id=%22grain%22 width=%22100%22 height=%22100%22 p[...]
                 "></div>
             </div>
             """, unsafe_allow_html=True)
 
     with st.sidebar:
         st.header("⚙️ 설정")
-        # st.subheader("종목 티커 (콤마로 구분)") # subheader 필요 X
         tickers_default = ", ".join(M7_TICKERS)
         
         tickers_input = st.text_area(
@@ -454,6 +511,7 @@ def main():
         **Rebalancing:** {"Weekly" if OPTIMAL_PARAMS['rebalance_freq']=='W' else "Monthly"}  
         **Threshold:** {abs(OPTIMAL_PARAMS['threshold'])*100:.0f}%  
         **Weight Split:** {OPTIMAL_PARAMS['weight_split']*100:.0f}%  
+        **Cap Weight:** {OPTIMAL_PARAMS['cap_weight']*100:.0f}%  
         **Min Weight Change:** {OPTIMAL_PARAMS['min_weight_change']*100:.0f}%
         """)
         run_button = st.button("🚀 포트폴리오 생성", type="primary", use_container_width=True)
@@ -508,10 +566,11 @@ def main():
     threshold = OPTIMAL_PARAMS['threshold']
     weight_split = OPTIMAL_PARAMS['weight_split']
     min_weight_change = OPTIMAL_PARAMS['min_weight_change']
+    cap_weight = OPTIMAL_PARAMS['cap_weight']
 
-    with st.spinner("백테스팅 중..."):
+    with st.spinner("로딩중..."):
         portfolio_values, weight_history = backtest_strategy(
-            prices, lookback_days, rebalance_freq, threshold, weight_split, min_weight_change
+            prices, lookback_days, rebalance_freq, threshold, weight_split, min_weight_change, cap_weight
         )
 
     if portfolio_values is None or portfolio_values.empty:
@@ -692,7 +751,6 @@ def main():
     if not excess_heatmap.empty:
         st.markdown("### 월별 초과성과 (%) - Portfolio vs Benchmark")
         
-        # 히트맵 생성 (RdPu 컬러스케일: 리밸런싱 가중치 표와 동일)
         fig_heatmap = go.Figure(data=go.Heatmap(
             z=excess_heatmap.values,
             x=excess_heatmap.columns,
@@ -710,14 +768,14 @@ def main():
             height=max(400, len(excess_heatmap) * 40),
             template="plotly_white",
             xaxis=dict(
-                side='top',  # x축을 위로 이동
+                side='top',
                 tickmode='linear',
                 dtick=1
             ),
             yaxis=dict(
-                tickmode='linear',  # 모든 연도 표시
+                tickmode='linear',
                 dtick=1,
-                autorange='reversed'  # 최신 연도가 위로 오도록
+                autorange='reversed'
             )
         )
         
@@ -748,13 +806,7 @@ def main():
     else:
         st.info("가중치 히스토리가 없습니다.")
 
- 
-
     st.markdown("---")
-    #st.caption(
-    #    "✅ temp 추후 주석용 "
-    #    "✅ temp 추후 주석용 "
-    #)
 
 if __name__ == "__main__":
     main()
