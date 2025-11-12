@@ -368,7 +368,7 @@ def main():
             unsafe_allow_html=True
         )
 
-    st.markdown("---")
+    #st.markdown("---")
     with st.expander("📋 앱 기능", expanded=False):
         col1, col2 = st.columns([3, 1])
         with col1:
