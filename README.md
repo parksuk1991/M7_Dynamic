@@ -168,16 +168,16 @@ requests>=2.31.0
 ## 🏗️ 프로젝트 구조
 
 ```
-m7-contrarian-strategy/
+main/
 │
-├── streamlit_app.py                  # 메인 Streamlit 애플리케이션
-├── requirements.txt        # Python 의존성
-├── README.md              # 본 파일
+├── streamlit_app.py      # 메인 Streamlit 애플리케이션
+├── requirements.txt      # Python 의존성
+├── README.md             # 본 파일
 │
-├── temp/                 # temp
+├── temp/                 # cached
 │   ├── original.py
 │
-└── docs/                  # 추가 문서
+└── docs/                 # temp
 ```
 
 ---
