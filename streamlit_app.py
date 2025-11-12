@@ -382,7 +382,7 @@ def main():
         end_date = st.date_input("종료일", value=default_end.date(), min_value=start_date, max_value=default_end.date())
 
         st.subheader("📈 벤치마크 선택")
-        benchmark_option = st.selectbox(options=["동일 가중", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
+        benchmark_option = st.selectbox("벤치마크 선택", options=["동일 가중", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
        
         st.subheader("🎯 최적 파라미터\n(Pre-trained Parameters)")
         st.info(f"""
