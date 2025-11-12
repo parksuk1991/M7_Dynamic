@@ -427,8 +427,6 @@ def main():
             #### ✔️ <font color='blueviolet'>전략 요약 <font color='black'>
             - <font color='black'>Drawdown 기준 Threshold 이하 하락 종목에 Weight Split% 배분 | 나머지 종목에 (1-Weight Split)% 배분
             - <font color='black'>Threshold 이하로 하락한 종목이 없을 경우 전체를 하락폭 비례로 배분
-            - <font color='black'>**모든 종목이 상승만 한 경우**: Drawdown이 0이므로 균등 가중(1/n) 배분
-            - <font color='black'>단일 종목 비중이 Cap Weight 초과 시 해당 종목을 Cap으로 제한하고 초과분을 나머지 종목에 기존 비율대로 재분배
             - <font color='black'>모든 파라미터는 Walk Forward 최적화로 Look-ahead Bias 통제 하에 Pre-trained 완료
 
             #### 📊 <font color='blueviolet'>예시
@@ -446,14 +444,14 @@ def main():
                   최종 비중: [34.3%, 25.7%, 9.8%, 4.9%, ...] (모두 60% 이하이므로 조정 없음)
 
             ###### <font color='black'>상황 2: 모든 종목 상승
-              - <font color='black'>모든 종목의 Drawdown = 0 (상승만 함)
-              - <font color='black'>→ 균등 가중: 각 14.3% (7종목 기준)
+                  모든 종목의 Drawdown = 0 (상승만 함)
+                  → 균등 가중: 각 14.3% (7종목 기준)
 
             ###### <font color='black'>상황 3: Cap Weight 초과
-              - <font color='black'>초기 계산 비중: [70%, 15%, 10%, 5%] (4종목)
-              - <font color='black'>Cap Weight=60% 적용:
-                - 1차: 70% → 60%, 초과분 10%를 나머지에 재분배
-                - 재분배 후: [60%, 18%, 14%, 8%] (합=100%)
+                  초기 계산 비중: [70%, 15%, 10%, 5%] (4종목)
+                  Cap Weight=60% 적용:
+                    -1차: 70% → 60%, 초과분 10%를 나머지에 재분배
+                    -재분배 후: [60%, 18%, 14%, 8%] (합=100%)
 
             """, unsafe_allow_html=True)
         with col2:
