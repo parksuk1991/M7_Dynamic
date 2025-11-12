@@ -6,7 +6,6 @@
 [![Data Source](https://img.shields.io/badge/Data-Yahoo%20Finance-purple.svg)](https://finance.yahoo.com/)
 
 > **낙폭 과대 기준 Mean Reversion 포트폴리오 전략**  
-> A sophisticated drawdown-weighted mean-reversion portfolio strategy
 
 ![M7 Strategy Banner](https://via.placeholder.com/1200x300/667eea/ffffff?text=M7+Contrarian+Strategy)
 
