@@ -379,25 +379,22 @@ def main():
             - **Weight Split(60%)**: 심각한 하락 종목(-30% 이하)에 60%를 배분하고 나머지 40%은 다른 종목에 분산
             
             #### ✔️ 전략 요약
-            - Drawdown 기준 Threshold 이하 하락 종목에 Weight Split% 배분(하락폭 비례) | 나머지 종목에 (1-Weight Split)% 배분
+            - Drawdown 기준 Threshold 이하 하락 종목에 Weight Split% 배분 | 나머지 종목에 (1-Weight Split)% 배분
             - Threshold 이하로 하락한 종목이 없을 경우 전체를 하락폭 비례로 배분
-            - Walk Forward 최적화로 Threshold Weight, Lookback Month, Weight Split, Rebalancing Frequency, Minimum Weight Change를 결정, Look-ahead Bias 통제
+            - Walk Forward 최적화로 좌측 사이드바에 존재하는 모든 파라미터 Search | Look-ahead Bias 통제
 
             #### 📊 예시
             ###### 상황
               - TSLA: -40% (심각한 하락) | NVDA: -30% (심각한 하락) | AAPL: -10% (일반적 하락) | MSFT: -5% (일반적 하락) | 나머지: -8%, -12%, -6% (일반적 하락)
-              - 파라미터: threshold=-30%, weight_split=60%
+              - 파라미터: Threshold=-30%, Weight Split=60%
               
             ###### 계산 과정
                 
                   심각한 하락 그룹 (60% 배분):
-                  TSLA: 40/(40+30) × 60% = 34.3%
-                  NVDA: 30/(40+30) × 60% = 25.7%
+                  TSLA: 40/(40+30) × 60% = 34.3%, NVDA: 30/(40+30) × 60% = 25.7%
 
                   일반적 하락 그룹 (40% 배분):
-                  AAPL: 10/(10+5+8+12+6) × 40% = 9.8%
-                  MSFT: 5/(10+5+8+12+6) × 40% = 4.9%
-                  ... (나머지 계산)
+                  AAPL: 10/(10+5+8+12+6) × 40% = 9.8%, MSFT: 5/(10+5+8+12+6) × 40% = 4.9% ... (나머지 계산)
 
                   최종 비중: [34.3%, 25.7%, 9.8%, 4.9%, ...]
 
