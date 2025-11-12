@@ -178,7 +178,9 @@ main/
 ├── temp/                 # cached
 │   ├── original.py
 │
-└── docs/                 # temp
+├── Pre-trained result.xlsx      # Backtest 결과
+└── Pre-trained result.html/     # Backtest Quantstat 결과
+
 ```
 
 ---
