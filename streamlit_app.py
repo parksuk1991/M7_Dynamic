@@ -407,26 +407,14 @@ def main():
             st.image(img, width=150, caption=None)
         except Exception:
             st.info("이미지를 불러올 수 없습니다.")
-
-
-
-
-        
-
-
-        
+            
         st.markdown(
         "<div style='margin-top: -1px; text-align:center;'>"
-        "<span style='font-size:0.9rem; color:#888;'>Made by parksuk1991</span>"
+        "<span style='font-size:0.9rem; color:#888;'>Made by CP3</span>"
         "</div>",
         unsafe_allow_html=True
         )
-
-
-
-
-        
-        
+       
         st.markdown(
             '<div style="text-align: left; margin-bottom: 3px; font-size:0.9rem;">'
             'Data 출처: <a href="https://finance.yahoo.com/" target="_blank">Yahoo Finance</a>'
