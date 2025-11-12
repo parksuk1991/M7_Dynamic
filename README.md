@@ -23,6 +23,7 @@ Link: https://m7dynamic.streamlit.app/
 - ✅ **Walk-Forward 최적화**: Look-ahead Bias 통제 하에서 주요 파라미터 사전 최적화 완료
 - ✅ **인터랙티브 대시보드**: 실시간 시각화 및 포트폴리오 분석
 - ✅ **유연한 자산 유니버스**: 기본 M7(Magnificent 7) 또는 사용자 정의 종목 선택
+- ✅ **초고위험**: 공모펀드 등 위험등급 제한 Vehicle에서 구현 불가
 
 ---
 
