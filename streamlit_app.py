@@ -368,9 +368,7 @@ def main():
             unsafe_allow_html=True
         )
 
-    if not run_button:
-        st.info("사이드바에서 티커, 기간, 벤치마크 설정 후 '포트폴리오 생성' 클릭")
-        return
+
 
     st.markdown("---")
     with st.expander("📋 앱 기능", expanded=False):
@@ -455,7 +453,9 @@ def main():
         """)
         run_button = st.button("🚀 포트폴리오 생성", type="primary", use_container_width=True)
     
-
+    if not run_button:
+        st.info("사이드바에서 티커, 기간, 벤치마크 설정 후 '포트폴리오 생성' 클릭")
+        return
 
     if len(tickers) == 0:
         st.error("티커 목록이 비어 있습니다. 하나 이상의 티커를 입력하세요.")
