@@ -31,7 +31,6 @@ OPTIMAL_PARAMS = {
     'rebalance_freq': 'M',
     'threshold': -0.3,
     'weight_split': 0.60,
-    'cap_weight': 0.60, # 🌟 질문 3 반영: Cap Weight 추가
     'min_weight_change': 0.0
 }
 
@@ -81,9 +80,8 @@ def calculate_drawdown_from_peak(prices: pd.DataFrame, lookback_days: int) -> pd
     rolling_max = prices.rolling(window=lookback_days, min_periods=1).max()
     return (prices - rolling_max) / rolling_max
 
-# 🌟 질문 3 반영: cap_weight 인자 추가 및 Cap Weight 적용 로직 추가
-def calculate_weights_by_drawdown(drawdowns: pd.Series, threshold: float, weight_split: float, cap_weight: float) -> pd.Series:
-    """하락률 기반 가중치 계산 및 Cap Weight 적용."""
+def calculate_weights_by_drawdown(drawdowns: pd.Series, threshold: float, weight_split: float) -> pd.Series:
+    """하락률 기반 가중치 계산."""
     if drawdowns is None or len(drawdowns.dropna()) == 0:
         idx = drawdowns.index if drawdowns is not None else []
         return pd.Series(1.0 / max(1, len(idx)), index=idx)
@@ -92,67 +90,33 @@ def calculate_weights_by_drawdown(drawdowns: pd.Series, threshold: float, weight
     idx = drawdowns.index
     weights = pd.Series(0.0, index=idx)
 
-    # 1. 심각한 하락 (Deep) / 일반 하락 (Others) 그룹 분리 및 1차 비중 계산
     deep_mask = drawdowns <= threshold
     if deep_mask.any():
         deep = drawdowns[deep_mask].abs()
         others = drawdowns[~deep_mask].abs()
-        
-        # Deep 그룹 배분 (weight_split)
         if deep.sum() > 0:
             weights[deep.index] = (deep / deep.sum()) * weight_split
-            
         remaining = 1 - weight_split
-        # Others 그룹 배분 (1 - weight_split)
         if len(others) > 0:
             if others.sum() > 0:
                 weights[others.index] = (others / others.sum()) * remaining
-            else: # 🌟 질문 1 로직: Others 그룹이 모두 DD=0이거나 DD 절댓값 합이 0일 경우 균등 분할
+            else:
                 weights[others.index] = remaining / len(others)
-    else: # 🌟 질문 1 로직: 모든 종목이 threshold보다 하락폭이 작거나(DD>threshold) 모두 상승(DD=0)한 경우
+    else:
         abs_dd = drawdowns.abs()
         if abs_dd.sum() > 0:
-            weights = abs_dd / abs_dd.sum() # 하락폭 비례 배분
-        else: # 🌟 질문 1 로직: 모두 상승(DD=0)한 경우
-            weights = pd.Series(1.0 / len(idx), index=idx) # 균등 분할 (Equal Weight)
+            weights = abs_dd / abs_dd.sum()
+        else:
+            weights = pd.Series(1.0 / len(idx), index=idx)
 
-    # 1차 정규화
     if weights.sum() <= 0:
         weights = pd.Series(1.0 / len(idx), index=idx)
     else:
         weights = weights / weights.sum()
-
-    # ----------------------------------------------------
-    # Cap Weight 적용 로직 (질문 3 반영)
-    # ----------------------------------------------------
-    if weights.max() > cap_weight:
-        over_mask = weights > cap_weight
-        over_weights = weights[over_mask]
-        
-        # Cap을 초과한 여유 비중 (Reallocation Pool)
-        reallocation_pool = over_weights.sum() - (over_weights.count() * cap_weight)
-        
-        under_mask = weights <= cap_weight
-        under_weights = weights[under_mask]
-        
-        # Cap 적용
-        weights[over_mask] = cap_weight
-        
-        # 여유 비중 재배분 (Pro-rata)
-        if reallocation_pool > 1e-8 and under_weights.sum() > 1e-8:
-            weights[under_mask] = under_weights + reallocation_pool * (under_weights / under_weights.sum())
-        
-        # 최종 정규화 (재배분 후 합이 1이 되도록)
-        if weights.sum() > 0:
-            weights = weights / weights.sum()
-            
-    # ----------------------------------------------------
-    
     return weights
 
-# 🌟 질문 3 반영: cap_weight 인자 추가
 def backtest_strategy(prices: pd.DataFrame, lookback_days: int, rebalance_freq: str, threshold: float,
-                      weight_split: float, cap_weight: float, min_weight_change: float = 0.0) -> Tuple[pd.Series, pd.DataFrame]:
+                      weight_split: float, min_weight_change: float = 0.0) -> Tuple[pd.Series, pd.DataFrame]:
     """백테스트 수행."""
     if prices is None or prices.empty:
         return pd.Series(dtype=float), pd.DataFrame()
@@ -194,10 +158,7 @@ def backtest_strategy(prices: pd.DataFrame, lookback_days: int, rebalance_freq: 
             prices_up_to = prices.loc[:date]
             drawdowns = calculate_drawdown_from_peak(prices_up_to, lookback_days)
             cur_dd = drawdowns.loc[date] if isinstance(drawdowns, pd.DataFrame) else drawdowns
-            
-            # 🌟 질문 3 반영: cap_weight 인자 전달
-            target_weights = calculate_weights_by_drawdown(cur_dd, threshold, weight_split, cap_weight) 
-            
+            target_weights = calculate_weights_by_drawdown(cur_dd, threshold, weight_split)
             aligned_target = target_weights.reindex(prices.columns).fillna(0)
             weight_change_sum = (aligned_target - last_weights).abs().sum()
 
@@ -222,7 +183,6 @@ def backtest_strategy(prices: pd.DataFrame, lookback_days: int, rebalance_freq: 
     weight_df = pd.DataFrame(weight_history)
     return portfolio_series, weight_df
 
-# 이하 코드는 동일
 def calculate_performance_metrics(value_series: pd.Series, benchmark_series: Optional[pd.Series] = None) -> dict:
     """성과 지표 계산."""
     out = {}
@@ -417,25 +377,26 @@ def main():
             - **Drawdown(3M)**: 고점 대비 하락률로 최근 3개월 고점 기준 하락폭이 클수록 저평가 판단
             - **Threshold(-30%)**: 심각한 하락의 기준  
             - **Weight Split(60%)**: 심각한 하락 종목(-30% 이하)에 60%를 배분하고 나머지 40%은 다른 종목에 분산
-            - **Cap Weight(60%)**: **(NEW)** 최종 비중이 이 값을 초과하지 않도록 Pro-rata 조정
             
             #### ✔️ 전략 요약
             - Drawdown 기준 Threshold 이하 하락 종목에 Weight Split% 배분 | 나머지 종목에 (1-Weight Split)% 배분
-            - Threshold 이하로 하락한 종목이 없을 경우 전체를 하락폭 비례로 배분 (**모두 상승 시 균등 배분**)
+            - Threshold 이하로 하락한 종목이 없을 경우 전체를 하락폭 비례로 배분
             - 모든 파라미터는 Walk Forward 최적화로 Look-ahead Bias 통제 하에 Pre-trained 완료(좌측 사이드바 참고)
 
-            #### 📊 예시 (Cap Weight 60% 적용)
+            #### 📊 예시
             ###### 상황
-              - TSLA: -40% (심각한 하락, 34.3% 할당) | NVDA: -30% (심각한 하락, 25.7% 할당) | AAPL: -10% (일반적 하락, 9.8% 할당) | MSFT: -5% (일반적 하락, 4.9% 할당) | 나머지: -8%, -12%, -6% (일반적 하락, 총 25.3% 할당)
-              - 초기 비중: [**34.3%**, 25.7%, 9.8%, 4.9%, ...]
-              - **Cap Weight(60%)** 적용: 이 예시에서는 최대 비중이 60%를 넘지 않으므로 조정이 없습니다.
+              - TSLA: -40% (심각한 하락) | NVDA: -30% (심각한 하락) | AAPL: -10% (일반적 하락) | MSFT: -5% (일반적 하락) | 나머지: -8%, -12%, -6% (일반적 하락)
+              - 파라미터: Threshold=-30%, Weight Split=60%
               
-              
-            ###### 조정 예시 (TSLA 70% 가정 시)
-              - 초기 비중: [**70%**, 10%, 5%, 5%, 5%, 5%, 0%]
-              - Cap Weight 60% 적용: 70% -> 60% (초과 비중 10% 발생)
-              - 초과 비중 10%를 나머지 종목(합 30%)에 비례 배분: 10% * (10/30), 10% * (5/30) ...
-              - 최종 비중: [60%, 13.33%, 6.67%, 6.67%, 6.67%, 6.67%, 0%] (합 100%)
+            ###### 계산 과정
+                
+                  심각한 하락 그룹 (60% 배분):
+                  TSLA: 40/(40+30) × 60% = 34.3%, NVDA: 30/(40+30) × 60% = 25.7%
+
+                  일반적 하락 그룹 (40% 배분):
+                  AAPL: 10/(10+5+8+12+6) × 40% = 9.8%, MSFT: 5/(10+5+8+12+6) × 40% = 4.9% ... (나머지 계산)
+
+                  최종 비중: [34.3%, 25.7%, 9.8%, 4.9%, ...]
 
             """)
         with col2:
@@ -468,17 +429,16 @@ def main():
         # st.subheader("종목 티커 (콤마로 구분)") # subheader 필요 X
         tickers_default = ", ".join(M7_TICKERS)
         
-        # 🌟 질문 1, 2 반영: help 옵션으로 Default Tickers: M7 표시
         tickers_input = st.text_area(
             "종목 티커 (콤마로 구분)", 
             value=tickers_default, 
             placeholder="예: AAPL, MSFT, TSLA", 
             height=100,
-            help="기본 종목 티커: M7" 
+            help="Default Tickers: M7" 
         )
         
         tickers = [t.strip().upper() for t in tickers_input.replace(';', ',').split(',') if t.strip() != ""]
-    
+      
         st.subheader("📅 기간 ")
         default_start = datetime(2015, 1, 1)
         default_end = datetime.now()
@@ -487,14 +447,13 @@ def main():
 
         st.subheader("📈 벤치마크")
         benchmark_option = st.selectbox("벤치마크 선택", options=["동일 가중 포트폴리오", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
-        
+       
         st.subheader("🎯 최적 파라미터\n(Pre-trained Parameters)")
         st.info(f"""
         **Lookback:** {OPTIMAL_PARAMS['lookback_months']}개월  
         **Rebalancing:** {"Weekly" if OPTIMAL_PARAMS['rebalance_freq']=='W' else "Monthly"}  
         **Threshold:** {abs(OPTIMAL_PARAMS['threshold'])*100:.0f}%  
         **Weight Split:** {OPTIMAL_PARAMS['weight_split']*100:.0f}%  
-        **Cap Weight:** {OPTIMAL_PARAMS['cap_weight']*100:.0f}%  # 🌟 질문 3 반영
         **Min Weight Change:** {OPTIMAL_PARAMS['min_weight_change']*100:.0f}%
         """)
         run_button = st.button("🚀 포트폴리오 생성", type="primary", use_container_width=True)
@@ -549,12 +508,10 @@ def main():
     threshold = OPTIMAL_PARAMS['threshold']
     weight_split = OPTIMAL_PARAMS['weight_split']
     min_weight_change = OPTIMAL_PARAMS['min_weight_change']
-    cap_weight = OPTIMAL_PARAMS['cap_weight'] # 🌟 질문 3 반영: cap_weight 변수 정의
 
     with st.spinner("백테스팅 중..."):
-        # 🌟 질문 3 반영: cap_weight 인자 전달
         portfolio_values, weight_history = backtest_strategy(
-            prices, lookback_days, rebalance_freq, threshold, weight_split, cap_weight, min_weight_change 
+            prices, lookback_days, rebalance_freq, threshold, weight_split, min_weight_change
         )
 
     if portfolio_values is None or portfolio_values.empty:
@@ -629,8 +586,8 @@ def main():
     fig_dd.add_trace(go.Scatter(x=bench_dd.index, y=bench_dd.values * 100, mode='lines', name='Benchmark DD',
                                  line=dict(color=SECONDARY_COLOR, width=1, dash='dash')))
     fig_dd.update_layout(xaxis_title="Date", yaxis_title="Drawdown (%)",
-                          template="plotly_white", hovermode='x unified',
-                          legend=dict(x=1.02, y=1.0, xanchor='left', yanchor='top'))
+                         template="plotly_white", hovermode='x unified',
+                         legend=dict(x=1.02, y=1.0, xanchor='left', yanchor='top'))
     st.plotly_chart(fig_dd, use_container_width=True)
 
     st.subheader("비중 히스토리")
@@ -651,7 +608,7 @@ def main():
             heat_df = wh.fillna(0).T
             heat_df.columns = [pd.to_datetime(c).strftime('%Y-%m-%d') if not isinstance(c, str) else c for c in heat_df.columns]
             fig_heat = px.imshow(heat_df, labels=dict(x="Rebalance Date", y="Ticker", color="Weight"),
-                                 x=heat_df.columns, y=heat_df.index, color_continuous_scale='RdPu', aspect="auto")
+                                x=heat_df.columns, y=heat_df.index, color_continuous_scale='RdPu', aspect="auto")
             fig_heat.update_layout(height=400, template="plotly_white")
             st.plotly_chart(fig_heat, use_container_width=True)
         except Exception:
@@ -680,7 +637,7 @@ def main():
                 st.dataframe(current_df, use_container_width=True, hide_index=True)
 
                 fig_pie = px.pie(names=list(current_weights.keys()), values=list(current_weights.values()),
-                                 title="📒 현재 비중", color_discrete_sequence=PASTEL_PALETTE, template='plotly_dark')
+                                title="📒 현재 비중", color_discrete_sequence=PASTEL_PALETTE, template='plotly_dark')
                 fig_pie.update_traces(textposition='inside', textinfo='percent+label')
                 fig_pie.update_layout(height=400, template="plotly_white")
                 st.plotly_chart(fig_pie, use_container_width=True)
@@ -706,8 +663,8 @@ def main():
                     changes_values = [float(r['변화'].replace('%',''))/100.0 for r in rebalancing_data]
                     colors = [PRIMARY_COLOR if v > 0 else SECONDARY_COLOR for v in changes_values]
                     fig_rebal = go.Figure(data=[go.Bar(x=stocks, y=[x*100 for x in changes_values],
-                                                     marker_color=colors, text=[f"{x:+.2%}" for x in changes_values],
-                                                     textposition='auto')])
+                                                       marker_color=colors, text=[f"{x:+.2%}" for x in changes_values],
+                                                       textposition='auto')])
                     fig_rebal.update_layout(title="📗 리밸런싱 추이 (%p)", xaxis_title="종목", yaxis_title="비중 변화 (%p)",
                                            template="plotly_white", height=400)
                     st.plotly_chart(fig_rebal, use_container_width=True)
@@ -722,9 +679,9 @@ def main():
 
     fig_hist = go.Figure()
     fig_hist.add_trace(go.Histogram(x=strat_monthly.values * 100, name='포트폴리오', opacity=0.75,
-                                     marker_color=PRIMARY_COLOR, nbinsx=24))
+                                    marker_color=PRIMARY_COLOR, nbinsx=24))
     fig_hist.add_trace(go.Histogram(x=bench_monthly.values * 100, name='벤치마크', opacity=0.5,
-                                     marker_color=SECONDARY_COLOR, nbinsx=24))
+                                    marker_color=SECONDARY_COLOR, nbinsx=24))
     fig_hist.update_layout(title="월별 수익률 분포 (%)", xaxis_title="월별 수익률 (%)", yaxis_title="빈도",
                           barmode='overlay', template="plotly_white", height=520,
                           legend=dict(x=0.02, y=0.98, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)'))
