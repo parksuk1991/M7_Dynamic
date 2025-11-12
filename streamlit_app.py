@@ -372,17 +372,17 @@ def main():
         st.header("⚙️ 설정")
         st.subheader("종목 티커 (콤마로 구분)")
         tickers_default = ", ".join(M7_TICKERS)
-        tickers_input = st.text_area("티커 목록", value=tickers_default, placeholder="예: AAPL, MSFT, TSLA", height=120)
+        tickers_input = st.text_area("Default: M7", value=tickers_default, placeholder="예: AAPL, MSFT, TSLA", height=120)
         tickers = [t.strip().upper() for t in tickers_input.replace(';', ',').split(',') if t.strip() != ""]
 
-        st.subheader("📅 기간 설정")
+        st.subheader("📅 기간 ")
         default_start = datetime(2015, 1, 1)
         default_end = datetime.now()
         start_date = st.date_input("시작일", value=default_start.date(), min_value=datetime(1990,1,1).date(), max_value=default_end.date())
         end_date = st.date_input("종료일", value=default_end.date(), min_value=start_date, max_value=default_end.date())
 
-        st.subheader("📈 벤치마크")
-        benchmark_option = st.selectbox("벤치마크 선택", options=["Equal Weight (tickers)", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
+        st.subheader("📈 벤치마크 선택")
+        benchmark_option = st.selectbox(options=["동일 가중", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
        
         st.subheader("🎯 최적 파라미터\n(Pre-trained Parameters)")
         st.info(f"""
@@ -395,7 +395,7 @@ def main():
         run_button = st.button("🚀 포트폴리오 생성", type="primary", use_container_width=True)
     
     if not run_button:
-        st.info("사이드바에서 티커, 기간, 벤치마크 설정 후 '포트폴리오 생성' 클릭.")
+        st.info("사이드바에서 티커, 기간, 벤치마크 설정 후 '포트폴리오 생성' 클릭")
         return
 
     if len(tickers) == 0:
