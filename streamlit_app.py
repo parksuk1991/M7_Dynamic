@@ -369,6 +369,61 @@ def main():
         )
 
 
+    with st.sidebar:
+        st.header("⚙️ 설정")
+        # st.subheader("종목 티커 (콤마로 구분)") # subheader 필요 X
+        tickers_default = ", ".join(M7_TICKERS)
+        
+        tickers_input = st.text_area(
+            "종목 티커 (콤마로 구분)", 
+            value=tickers_default, 
+            placeholder="예: AAPL, MSFT, TSLA", 
+            height=100,
+            help="Default Tickers: M7" 
+        )
+        
+        tickers = [t.strip().upper() for t in tickers_input.replace(';', ',').split(',') if t.strip() != ""]
+      
+        st.subheader("📅 기간 ")
+        default_start = datetime(2015, 1, 1)
+        default_end = datetime.now()
+        start_date = st.date_input("시작일", value=default_start.date(), min_value=datetime(1990,1,1).date(), max_value=default_end.date())
+        end_date = st.date_input("종료일", value=default_end.date(), min_value=start_date, max_value=default_end.date())
+
+        st.subheader("📈 벤치마크")
+        benchmark_option = st.selectbox("벤치마크 선택", options=["동일 가중 포트폴리오", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
+       
+        st.subheader("🎯 최적 파라미터\n(Pre-trained Parameters)")
+        st.info(f"""
+        **Lookback:** {OPTIMAL_PARAMS['lookback_months']}개월  
+        **Rebalancing:** {"Weekly" if OPTIMAL_PARAMS['rebalance_freq']=='W' else "Monthly"}  
+        **Threshold:** {abs(OPTIMAL_PARAMS['threshold'])*100:.0f}%  
+        **Weight Split:** {OPTIMAL_PARAMS['weight_split']*100:.0f}%  
+        **Min Weight Change:** {OPTIMAL_PARAMS['min_weight_change']*100:.0f}%
+        """)
+        run_button = st.button("🚀 포트폴리오 생성", type="primary", use_container_width=True)
+    
+    if not run_button:
+        st.info("사이드바에서 티커, 기간, 벤치마크 설정 후 '포트폴리오 생성' 클릭")
+        return
+
+    if len(tickers) == 0:
+        st.error("티커 목록이 비어 있습니다. 하나 이상의 티커를 입력하세요.")
+        return
+
+    
+
+
+
+
+
+
+
+
+
+
+
+    
 
     st.markdown("---")
     with st.expander("📋 앱 기능", expanded=False):
@@ -419,47 +474,7 @@ def main():
 
 
     
-    with st.sidebar:
-        st.header("⚙️ 설정")
-        # st.subheader("종목 티커 (콤마로 구분)") # subheader 필요 X
-        tickers_default = ", ".join(M7_TICKERS)
-        
-        tickers_input = st.text_area(
-            "종목 티커 (콤마로 구분)", 
-            value=tickers_default, 
-            placeholder="예: AAPL, MSFT, TSLA", 
-            height=100,
-            help="Default Tickers: M7" 
-        )
-        
-        tickers = [t.strip().upper() for t in tickers_input.replace(';', ',').split(',') if t.strip() != ""]
-      
-        st.subheader("📅 기간 ")
-        default_start = datetime(2015, 1, 1)
-        default_end = datetime.now()
-        start_date = st.date_input("시작일", value=default_start.date(), min_value=datetime(1990,1,1).date(), max_value=default_end.date())
-        end_date = st.date_input("종료일", value=default_end.date(), min_value=start_date, max_value=default_end.date())
 
-        st.subheader("📈 벤치마크")
-        benchmark_option = st.selectbox("벤치마크 선택", options=["동일 가중 포트폴리오", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
-       
-        st.subheader("🎯 최적 파라미터\n(Pre-trained Parameters)")
-        st.info(f"""
-        **Lookback:** {OPTIMAL_PARAMS['lookback_months']}개월  
-        **Rebalancing:** {"Weekly" if OPTIMAL_PARAMS['rebalance_freq']=='W' else "Monthly"}  
-        **Threshold:** {abs(OPTIMAL_PARAMS['threshold'])*100:.0f}%  
-        **Weight Split:** {OPTIMAL_PARAMS['weight_split']*100:.0f}%  
-        **Min Weight Change:** {OPTIMAL_PARAMS['min_weight_change']*100:.0f}%
-        """)
-        run_button = st.button("🚀 포트폴리오 생성", type="primary", use_container_width=True)
-    
-    if not run_button:
-        st.info("사이드바에서 티커, 기간, 벤치마크 설정 후 '포트폴리오 생성' 클릭")
-        return
-
-    if len(tickers) == 0:
-        st.error("티커 목록이 비어 있습니다. 하나 이상의 티커를 입력하세요.")
-        return
 
     with st.spinner("데이터 처리 중..."):
         first_dates = {t: get_first_available_date(t) for t in tickers}
