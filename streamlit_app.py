@@ -372,7 +372,7 @@ def main():
         st.header("⚙️ 설정")
         st.subheader("종목 티커 (콤마로 구분)")
         tickers_default = ", ".join(M7_TICKERS)
-        tickers_input = st.text_area("Default: M7", value=tickers_default, placeholder="예: AAPL, MSFT, TSLA", height=120)
+        tickers_input = st.text_area("Default: M7", value=tickers_default, placeholder="예: AAPL, MSFT, TSLA", height=100)
         tickers = [t.strip().upper() for t in tickers_input.replace(';', ',').split(',') if t.strip() != ""]
 
         st.subheader("📅 기간 ")
@@ -381,8 +381,8 @@ def main():
         start_date = st.date_input("시작일", value=default_start.date(), min_value=datetime(1990,1,1).date(), max_value=default_end.date())
         end_date = st.date_input("종료일", value=default_end.date(), min_value=start_date, max_value=default_end.date())
 
-        st.subheader("📈 벤치마크 선택")
-        benchmark_option = st.selectbox("벤치마크 선택", options=["동일 가중", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
+        st.subheader("📈 벤치마크")
+        benchmark_option = st.selectbox("벤치마크 선택", options=["동일 가중 포트폴리오", f"{BENCHMARK_TICKER} (Nasdaq 100)"], index=0)
        
         st.subheader("🎯 최적 파라미터\n(Pre-trained Parameters)")
         st.info(f"""
