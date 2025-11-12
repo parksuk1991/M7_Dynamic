@@ -374,9 +374,9 @@ def main():
         with col1:
             st.markdown("""
             #### 🎯 <font color='blueviolet'>주요 파라미터
-            - **Drawdown(3M)**: 고점 대비 하락률로 최근 3개월 고점 기준 하락폭이 클수록 저평가 판단
-            - **Threshold(-30%)**: 심각한 하락의 기준  
-            - **Weight Split(60%)**: 심각한 하락 종목(-30% 이하)에 60%를 배분하고 나머지 40%은 다른 종목에 분산
+            - <font color='black'>**Drawdown(3M)**: 고점 대비 하락률로 최근 3개월 고점 기준 하락폭이 클수록 저평가 판단
+            - <font color='black'>**Threshold(-30%)**: 심각한 하락의 기준  
+            - <font color='black'>**Weight Split(60%)**: 심각한 하락 종목(-30% 이하)에 60%를 배분하고 나머지 40%은 다른 종목에 분산
             
             #### ✔️ <font color='blueviolet'>전략 요약
             - <font color='black'>Drawdown 기준 Threshold 이하 하락 종목에 Weight Split% 배분 | 나머지 종목에 (1-Weight Split)% 배분
