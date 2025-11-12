@@ -410,7 +410,7 @@ def main():
             
         st.markdown(
         "<div style='margin-top: -1px; text-align:center;'>"
-        "<span style='font-size:0.7rem; color:#888;'>Made by CP3</span>"
+        "<span style='font-size:0.75rem; color:#888;'>Made by CP3</span>"
         "</div>",
         unsafe_allow_html=True
         )
