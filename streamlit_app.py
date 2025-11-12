@@ -370,11 +370,19 @@ def main():
         
     with st.sidebar:
         st.header("⚙️ 설정")
-        st.subheader("종목 티커 (콤마로 구분)")
+        # st.subheader("종목 티커 (콤마로 구분)") # subheader 필요 X
         tickers_default = ", ".join(M7_TICKERS)
-        tickers_input = st.text_area("Default Tickers: M7", value=tickers_default, placeholder="예: AAPL, MSFT, TSLA", height=100)
+        
+        tickers_input = st.text_area(
+            "종목 티커 (콤마로 구분)", 
+            value=tickers_default, 
+            placeholder="예: AAPL, MSFT, TSLA", 
+            height=100,
+            help="Default Tickers: M7" 
+        )
+        
         tickers = [t.strip().upper() for t in tickers_input.replace(';', ',').split(',') if t.strip() != ""]
-
+      
         st.subheader("📅 기간 ")
         default_start = datetime(2015, 1, 1)
         default_end = datetime.now()
