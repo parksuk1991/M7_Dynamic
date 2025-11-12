@@ -430,9 +430,9 @@ def main():
             - <font color='black'>모든 파라미터는 Walk Forward 최적화로 Look-ahead Bias 통제 하에 Pre-trained 완료
 
             #### 📊 <font color='blueviolet'>예시
+            ###### <font color='black'>파라미터: Threshold=-30%, Weight Split=60%, Cap Weight=60%
             ###### <font color='black'>상황 1: 일반적인 경우
                   TSLA: -40% | NVDA: -30% | AAPL: -10% | MSFT: -5% | 나머지: -8%, -12%, -6%
-                  파라미터: Threshold=-30%, Weight Split=60%, Cap Weight=60%
               
                   심각한 하락 그룹 (60% 배분):
                   TSLA: 40/(40+30) × 60% = 34.3%, NVDA: 30/(40+30) × 60% = 25.7%
