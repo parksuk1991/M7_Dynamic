@@ -402,7 +402,7 @@ def main():
         with col2:
             st.markdown("""
             <div style="
-                height: 670px;
+                height: 668px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
