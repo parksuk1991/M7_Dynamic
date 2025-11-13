@@ -532,7 +532,7 @@ def main():
         if use_loss_cut:
             loss_pct = st.slider(
                 "개별 종목 손실 제한 (%)",
-                min_value=-30.0,
+                min_value=-50.0,
                 max_value=-5.0,
                 value=-15.0,
                 step=1.0,
