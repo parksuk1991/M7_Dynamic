@@ -35,12 +35,6 @@ OPTIMAL_PARAMS = {
     'cap_weight': 0.60
 }
 
-# Loss Cut 파라미터
-LOSS_CUT_PARAMS = {
-    'individual_loss_threshold': -0.15,  # 개별 종목 -15% 손실 시 매도
-    'portfolio_loss_threshold': -0.10,   # 전체 포트폴리오 -10% 손실 시 현금 전환
-}
-
 # 기본/디폴트 티커 (M7)
 M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA']
 BENCHMARK_TICKER = 'QQQ'
@@ -143,9 +137,16 @@ def calculate_weights_by_drawdown(drawdowns: pd.Series, threshold: float, weight
 
 def backtest_strategy(prices: pd.DataFrame, lookback_days: int, rebalance_freq: str, threshold: float,
                       weight_split: float, min_weight_change: float = 0.0, cap_weight: float = 1.0,
-                      use_loss_cut: bool = False, individual_loss_threshold: float = -0.15,
-                      portfolio_loss_threshold: float = -0.10) -> Tuple[pd.Series, pd.DataFrame, List[Dict]]:
-    """백테스트 수행 with Loss Cut 로직."""
+                      use_loss_cut: bool = False, individual_loss_threshold: float = -0.15) -> Tuple[pd.Series, pd.DataFrame, List[Dict]]:
+    """
+    백테스트 수행 with Loss Cut 로직.
+    
+    Loss Cut 로직:
+    1. 리밸런싱 시점에만 체크 (매일 체크 X)
+    2. 전월부터 보유한 종목 중 손실률이 threshold 이하인 경우만 매도
+    3. 신규 편입 종목은 Loss Cut 체크 제외
+    4. 손절된 비중은 나머지 보유 종목에 Pro-rata로 재분배
+    """
     if prices is None or prices.empty:
         return pd.Series(dtype=float), pd.DataFrame(), []
 
@@ -175,91 +176,90 @@ def backtest_strategy(prices: pd.DataFrame, lookback_days: int, rebalance_freq: 
     loss_cut_events = []
     current_holdings = pd.Series(0.0, index=prices.columns)
     last_weights = pd.Series(0.0, index=prices.columns)
-    entry_prices = pd.Series(0.0, index=prices.columns)
-    entry_portfolio_value = portfolio_value
-    is_cash_position = False
+    entry_prices = pd.Series(0.0, index=prices.columns)  # 각 종목의 진입가
+    previous_period_tickers = set()  # 전월 보유 종목
 
     for i, date in enumerate(prices.index):
         # 포트폴리오 가치 업데이트
-        if i > 0 and (current_holdings > 0).any() and not is_cash_position:
+        if i > 0 and (current_holdings > 0).any():
             portfolio_value = (current_holdings * prices.loc[date]).sum()
 
         pv_list.append(portfolio_value)
         pv_dates.append(date)
 
-        # Loss Cut 체크 (리밸런싱 날짜가 아닐 때도 체크)
-        if use_loss_cut and not is_cash_position and i > 0:
-            current_prices = prices.loc[date]
-            
-            # 1. 개별 종목 손실 체크
-            for ticker in prices.columns:
-                if current_holdings[ticker] > 0 and entry_prices[ticker] > 0:
-                    individual_return = (current_prices[ticker] - entry_prices[ticker]) / entry_prices[ticker]
-                    
-                    if individual_return <= individual_loss_threshold:
-                        # 개별 종목 매도
-                        liquidation_value = current_holdings[ticker] * current_prices[ticker]
-                        portfolio_value += liquidation_value
-                        current_holdings[ticker] = 0
-                        
-                        loss_cut_events.append({
-                            'date': date,
-                            'type': 'Individual',
-                            'ticker': ticker,
-                            'loss': individual_return * 100,
-                            'portfolio_value': portfolio_value
-                        })
-                        
-                        # 남은 홀딩 재분배 (즉시 리밸런싱)
-                        if current_holdings.sum() > 0:
-                            remaining_tickers = current_holdings[current_holdings > 0].index
-                            current_weights = current_holdings[remaining_tickers] * current_prices[remaining_tickers]
-                            current_weights = current_weights / current_weights.sum()
-                            last_weights = pd.Series(0.0, index=prices.columns)
-                            last_weights[remaining_tickers] = current_weights
-                        
-            # 2. 전체 포트폴리오 손실 체크
-            portfolio_return = (portfolio_value - entry_portfolio_value) / entry_portfolio_value
-            
-            if portfolio_return <= portfolio_loss_threshold:
-                # 전체 현금화
-                is_cash_position = True
-                current_holdings = pd.Series(0.0, index=prices.columns)
-                last_weights = pd.Series(0.0, index=prices.columns)
-                
-                loss_cut_events.append({
-                    'date': date,
-                    'type': 'Portfolio',
-                    'ticker': 'ALL',
-                    'loss': portfolio_return * 100,
-                    'portfolio_value': portfolio_value
-                })
-
         # 리밸런싱 날짜 체크
         if date in reb_actual:
-            # 현금 포지션이면 재진입
-            if is_cash_position:
-                is_cash_position = False
+            current_prices = prices.loc[date]
             
+            # 1단계: 목표 가중치 계산 (기존 전략)
             prices_up_to = prices.loc[:date]
             drawdowns = calculate_drawdown_from_peak(prices_up_to, lookback_days)
             cur_dd = drawdowns.loc[date] if isinstance(drawdowns, pd.DataFrame) else drawdowns
             target_weights = calculate_weights_by_drawdown(cur_dd, threshold, weight_split, cap_weight)
             aligned_target = target_weights.reindex(prices.columns).fillna(0)
+            
+            # 2단계: Loss Cut 체크 (활성화된 경우만)
+            if use_loss_cut and len(previous_period_tickers) > 0:
+                tickers_to_cut = []
+                
+                # 전월부터 보유한 종목만 체크
+                for ticker in previous_period_tickers:
+                    # 이번 달에도 편입 예정이고
+                    if aligned_target[ticker] > 0:
+                        # 진입가가 기록되어 있고
+                        if entry_prices[ticker] > 0:
+                            # 현재가와 진입가 비교
+                            holding_return = (current_prices[ticker] - entry_prices[ticker]) / entry_prices[ticker]
+                            
+                            # 손실률이 threshold 이하인 경우
+                            if holding_return <= individual_loss_threshold:
+                                tickers_to_cut.append(ticker)
+                                
+                                loss_cut_events.append({
+                                    'date': date,
+                                    'ticker': ticker,
+                                    'entry_price': entry_prices[ticker],
+                                    'current_price': current_prices[ticker],
+                                    'loss': holding_return * 100,
+                                    'portfolio_value': portfolio_value
+                                })
+                
+                # Loss Cut 종목이 있으면 가중치 재조정
+                if len(tickers_to_cut) > 0:
+                    # Loss Cut 종목 제거
+                    for ticker in tickers_to_cut:
+                        aligned_target[ticker] = 0.0
+                    
+                    # 남은 종목들에 Pro-rata 재분배
+                    if aligned_target.sum() > 0:
+                        aligned_target = aligned_target / aligned_target.sum()
+                    else:
+                        # 모든 종목이 Loss Cut된 경우 현금 보유
+                        aligned_target = pd.Series(0.0, index=prices.columns)
+            
+            # 3단계: 가중치 변화 체크 및 리밸런싱
             weight_change_sum = (aligned_target - last_weights).abs().sum()
 
             if last_weights.sum() == 0 or weight_change_sum >= min_weight_change:
-                current_prices = prices.loc[date]
+                # 리밸런싱 실행
                 current_holdings = (portfolio_value * aligned_target) / current_prices.replace(0, np.nan)
                 current_holdings = current_holdings.fillna(0)
-                last_weights = aligned_target
+                last_weights = aligned_target.copy()
                 
-                # 진입가 기록
-                entry_prices = current_prices.copy()
-                entry_portfolio_value = portfolio_value
+                # 진입가 업데이트 (신규 편입 또는 비중 증가한 종목만)
+                current_period_tickers = set(aligned_target[aligned_target > 0].index)
+                for ticker in current_period_tickers:
+                    # 신규 편입이거나 전월에 없었던 종목
+                    if ticker not in previous_period_tickers:
+                        entry_prices[ticker] = current_prices[ticker]
+                    # 전월에도 있었지만 Loss Cut으로 제외되지 않은 경우는 진입가 유지
+                
+                # 다음 달을 위해 현재 보유 종목 기록
+                previous_period_tickers = current_period_tickers.copy()
                 
                 weight_history.append({'date': date, **{t: last_weights.get(t, 0.0) for t in prices.columns}})
             else:
+                # 리밸런싱 스킵 - 현재 비중 기록
                 if (current_holdings > 0).any():
                     current_value_per_stock = current_holdings * prices.loc[date]
                     if current_value_per_stock.sum() > 0:
@@ -466,14 +466,15 @@ def main():
             - <font color='black'>**Cap Weight(60%)**: 단일 종목 최대 비중 제한 (초과 시 pro-rata 재분배)
             
             #### 🛡️ <font color='blueviolet'>Loss Cut 로직 <font color='black'>
-            - <font color='black'>**개별 종목 손실 제한(-15%)**: 진입가 대비 -15% 하락 시 해당 종목만 매도 후 재분배
-            - <font color='black'>**포트폴리오 전체 손실 제한(-10%)**: 포트폴리오 전체가 -10% 하락 시 전체 현금화
-            - <font color='black'>**재진입**: 다음 리밸런싱 시점에 자동 재진입
+            - <font color='black'>**개별 종목 손실 제한**: 리밸런싱 시점에 체크
+            - <font color='black'>**전월 보유 종목만 체크**: 신규 편입 종목은 Loss Cut 제외
+            - <font color='black'>**손실 기준 초과 시**: 해당 종목 전액 매도 후 나머지 보유 종목에 Pro-rata 재분배
+            - <font color='black'>**기준 미달 시**: 다음 달에도 동일 종목 보유 시 진입가 기준 유지
             
             #### ✔️ <font color='blueviolet'>전략 요약 <font color='black'>
             - <font color='black'>Drawdown 기준 Threshold 이하 하락 종목에 Weight Split% 배분 | 나머지 종목에 (1-Weight Split)% 배분
             - <font color='black'>Threshold 이하로 하락한 종목이 없을 경우 전체를 하락폭 비례로 배분
-            - <font color='black'>Loss Cut 활성화 시 개별 종목 또는 전체 포트폴리오 손실 제한 적용
+            - <font color='black'>Loss Cut 활성화 시 개별 종목 손실 제한 적용 (리밸런싱 시점에만)
             - <font color='black'>모든 파라미터는 Walk Forward 최적화로 Look-ahead Bias 통제 하에 Pre-trained 완료
             """, unsafe_allow_html=True)
         with col2:
@@ -525,12 +526,26 @@ def main():
         
         # Loss Cut 옵션
         st.subheader("🛡️ Loss Cut 설정")
-        use_loss_cut = st.checkbox("Loss Cut 활성화", value=False, help="개별 종목 및 포트폴리오 전체 손실 제한 적용")
+        use_loss_cut = st.checkbox("Loss Cut 활성화", value=False, help="개별 종목 손실 제한 적용 (리밸런싱 시점에만 체크)")
         
+        individual_loss_threshold = -0.15  # 기본값
         if use_loss_cut:
+            loss_pct = st.slider(
+                "개별 종목 손실 제한 (%)",
+                min_value=-30.0,
+                max_value=-5.0,
+                value=-15.0,
+                step=1.0,
+                help="전월부터 보유한 종목이 이 비율 이하로 하락하면 매도"
+            )
+            individual_loss_threshold = loss_pct / 100.0
+            
             st.info(f"""
-            **개별 종목 손실 제한:** {abs(LOSS_CUT_PARAMS['individual_loss_threshold'])*100:.0f}%  
-            **포트폴리오 전체 손실 제한:** {abs(LOSS_CUT_PARAMS['portfolio_loss_threshold'])*100:.0f}%
+            **개별 종목 손실 제한:** {abs(individual_loss_threshold)*100:.0f}%  
+            
+            - 리밸런싱 시점에만 체크
+            - 전월 보유 종목만 적용
+            - 신규 편입 종목 제외
             """)
        
         st.subheader("🎯 최적 파라미터\n(Pre-trained Parameters)")
@@ -600,8 +615,7 @@ def main():
         portfolio_values, weight_history, loss_cut_events = backtest_strategy(
             prices, lookback_days, rebalance_freq, threshold, weight_split, min_weight_change, cap_weight,
             use_loss_cut=use_loss_cut,
-            individual_loss_threshold=LOSS_CUT_PARAMS['individual_loss_threshold'],
-            portfolio_loss_threshold=LOSS_CUT_PARAMS['portfolio_loss_threshold']
+            individual_loss_threshold=individual_loss_threshold
         )
 
     if portfolio_values is None or portfolio_values.empty:
@@ -642,23 +656,33 @@ def main():
         col_summary, col_detail = st.columns([1, 2])
         
         with col_summary:
-            individual_cuts = [e for e in loss_cut_events if e['type'] == 'Individual']
-            portfolio_cuts = [e for e in loss_cut_events if e['type'] == 'Portfolio']
-            
-            st.metric("개별 종목 Loss Cut", f"{len(individual_cuts)}회")
-            st.metric("포트폴리오 전체 Loss Cut", f"{len(portfolio_cuts)}회")
             st.metric("총 Loss Cut 이벤트", f"{len(loss_cut_events)}회")
+            
+            # 종목별 집계
+            ticker_counts = {}
+            for event in loss_cut_events:
+                ticker = event['ticker']
+                ticker_counts[ticker] = ticker_counts.get(ticker, 0) + 1
+            
+            st.write("**종목별 Loss Cut 횟수**")
+            for ticker, count in sorted(ticker_counts.items(), key=lambda x: x[1], reverse=True):
+                st.write(f"- {ticker}: {count}회")
         
         with col_detail:
+            st.write("**Loss Cut 상세 내역**")
             loss_cut_df = pd.DataFrame(loss_cut_events)
             loss_cut_df['date'] = pd.to_datetime(loss_cut_df['date']).dt.strftime('%Y-%m-%d')
+            loss_cut_df['entry_price'] = loss_cut_df['entry_price'].apply(lambda x: f"${x:.2f}")
+            loss_cut_df['current_price'] = loss_cut_df['current_price'].apply(lambda x: f"${x:.2f}")
             loss_cut_df['loss'] = loss_cut_df['loss'].apply(lambda x: f"{x:.2f}%")
             loss_cut_df['portfolio_value'] = loss_cut_df['portfolio_value'].apply(lambda x: f"${x:.2f}")
             
-            display_df = loss_cut_df[['date', 'type', 'ticker', 'loss', 'portfolio_value']]
-            display_df.columns = ['날짜', '유형', '종목', '손실률', '포트폴리오 가치']
+            display_df = loss_cut_df[['date', 'ticker', 'entry_price', 'current_price', 'loss']]
+            display_df.columns = ['날짜', '종목', '진입가', '현재가', '손실률']
             
             st.dataframe(display_df, use_container_width=True, hide_index=True)
+    elif use_loss_cut:
+        st.info("🛡️ Loss Cut 활성화 상태 - 손실 제한 기준을 충족한 이벤트가 없습니다.")
 
     # UI 출력
     st.subheader("성과")
@@ -675,18 +699,17 @@ def main():
                 event_date = pd.Timestamp(event['date'])
                 if event_date in strat_cum.index:
                     event_value = (strat_cum.loc[event_date] - 1) * 100
-                    color = 'orange' if event['type'] == 'Individual' else 'red'
-                    symbol = 'triangle-down' if event['type'] == 'Individual' else 'x'
                     fig.add_trace(go.Scatter(
                         x=[event_date], y=[event_value],
                         mode='markers',
-                        marker=dict(size=10, color=color, symbol=symbol),
-                        name=f"{event['type']} Cut",
+                        marker=dict(size=10, color='orange', symbol='triangle-down'),
+                        name='Loss Cut',
                         showlegend=False,
-                        hovertemplate=f"<b>{event['type']} Loss Cut</b><br>Date: {event_date.strftime('%Y-%m-%d')}<br>Ticker: {event['ticker']}<br>Loss: {event['loss']:.2f}%<extra></extra>"
+                        hovertemplate=f"<b>Loss Cut</b><br>Date: {event_date.strftime('%Y-%m-%d')}<br>Ticker: {event['ticker']}<br>Loss: {event['loss']:.2f}%<extra></extra>"
                     ))
         
-        fig.update_layout(title="누적수익률 (%) - Loss Cut 이벤트 표시", template="plotly_white", hovermode='x unified',
+        title_suffix = " (Loss Cut 이벤트 표시)" if use_loss_cut and len(loss_cut_events) > 0 else ""
+        fig.update_layout(title=f"누적수익률 (%){title_suffix}", template="plotly_white", hovermode='x unified',
                           legend=dict(x=0.02, y=0.98, xanchor='left', yanchor='top', bgcolor='rgba(255,255,255,0.6)'))
         st.plotly_chart(fig, use_container_width=True)
 
@@ -705,7 +728,7 @@ def main():
     if strategy_metrics is not None:
         strat_dict = strategy_metrics.copy()
         strat_dict['Annual Turnover (%)'] = annual_turnover
-        strategy_label = "Strategy (Loss Cut)" if use_loss_cut else "Strategy"
+        strategy_label = f"Strategy (Loss Cut {abs(individual_loss_threshold)*100:.0f}%)" if use_loss_cut else "Strategy"
         metrics_df = metrics_df.join(pd.DataFrame.from_dict(strat_dict, orient='index', columns=[strategy_label]))
     
     if benchmark_metrics is not None:
@@ -737,15 +760,13 @@ def main():
             event_date = pd.Timestamp(event['date'])
             if event_date in strat_dd.index:
                 event_dd = strat_dd.loc[event_date] * 100
-                color = 'orange' if event['type'] == 'Individual' else 'red'
-                symbol = 'triangle-down' if event['type'] == 'Individual' else 'x'
                 fig_dd.add_trace(go.Scatter(
                     x=[event_date], y=[event_dd],
                     mode='markers',
-                    marker=dict(size=10, color=color, symbol=symbol),
-                    name=f"{event['type']} Cut",
+                    marker=dict(size=10, color='orange', symbol='triangle-down'),
+                    name='Loss Cut',
                     showlegend=False,
-                    hovertemplate=f"<b>{event['type']} Loss Cut</b><br>Date: {event_date.strftime('%Y-%m-%d')}<br>Ticker: {event['ticker']}<extra></extra>"
+                    hovertemplate=f"<b>Loss Cut</b><br>Date: {event_date.strftime('%Y-%m-%d')}<br>Ticker: {event['ticker']}<extra></extra>"
                 ))
     
     fig_dd.update_layout(xaxis_title="Date", yaxis_title="Drawdown (%)",
